@@ -184,8 +184,13 @@ function LoginPage({
 
   return (
     <main className="auth-shell">
+      <section className="auth-copy" aria-label="Описание сервиса">
+        <p>Умная теплица</p>
+        <h2>Автоматическое проветривание, контроль климата и удалённое управление.</h2>
+      </section>
+
       <section className="auth-panel" aria-labelledby="auth-title">
-        <p className="eyebrow">IoT Greenhouse</p>
+        <p className="eyebrow">Умная теплица</p>
         <h1 id="auth-title">Вход</h1>
 
         <form className="form-grid" onSubmit={handleSubmit}>
@@ -270,8 +275,13 @@ function RegisterPage({ onRegister }: { onRegister: () => void }) {
 
   return (
     <main className="auth-shell">
+      <section className="auth-copy" aria-label="Описание сервиса">
+        <p>Умная теплица</p>
+        <h2>Автоматическое проветривание, контроль климата и удалённое управление.</h2>
+      </section>
+
       <section className="auth-panel" aria-labelledby="auth-title">
-        <p className="eyebrow">IoT Greenhouse</p>
+        <p className="eyebrow">Умная теплица</p>
         <h1 id="auth-title">Регистрация</h1>
 
         <form className="form-grid" onSubmit={handleSubmit}>
@@ -345,9 +355,9 @@ function AppLayout({
       <aside className="sidebar" aria-label="Основная навигация">
         <div>
           <div className="brand">
-            <span className="brand-mark">IG</span>
+            <span className="brand-mark" aria-hidden="true" />
             <div>
-              <strong>IoT Greenhouse</strong>
+              <span className="brand-name">Умная теплица</span>
               <span>Панель управления</span>
             </div>
           </div>
