@@ -1,0 +1,109 @@
+.auth-shell,
+.app-shell {
+  min-height: 100vh;
+  background: #ffffff;
+  color: #000000;
+}
+
+.auth-shell {
+  padding: 24px;
+}
+
+.auth-panel {
+  max-width: 360px;
+}
+
+.auth-panel h1,
+.workspace h1 {
+  margin: 0 0 16px;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.eyebrow,
+.brand span {
+  display: none;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+}
+
+label {
+  display: grid;
+  gap: 4px;
+}
+
+input {
+  color: #000000;
+}
+
+a {
+  color: #000000;
+}
+
+button {
+  color: #000000;
+}
+
+.form-error,
+.form-success,
+.auth-switch {
+  margin: 12px 0 0;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid #000000;
+  padding: 16px;
+}
+
+.brand {
+  margin-bottom: 24px;
+}
+
+.brand-mark {
+  display: none;
+}
+
+.brand strong {
+  font-weight: 700;
+}
+
+.side-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.side-nav a.active {
+  font-weight: 700;
+}
+
+.sidebar-account {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace {
+  padding: 24px;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    gap: 24px;
+    border-right: 0;
+    border-bottom: 1px solid #000000;
+  }
+}
