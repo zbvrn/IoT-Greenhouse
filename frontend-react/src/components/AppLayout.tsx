@@ -1,24 +1,30 @@
 import { navItems, routeTitles } from '../constants/routes';
+import GreenhousesPage from '../pages/greenhouses/GreenhousesPage';
 import ProfilePage from '../pages/ProfilePage';
-import type { AppRoute, User } from '../types';
+import type { RouteState, User } from '../types';
 
 type AppLayoutProps = {
-  route: AppRoute;
+  routeState: RouteState;
   token: string;
   user: User | null;
   userName: string;
   onUserUpdate: (user: User) => void;
+  onAuthExpired: () => void;
   onLogout: () => void;
 };
 
 function AppLayout({
-  route,
+  routeState,
   token,
   user,
   userName,
   onUserUpdate,
+  onAuthExpired,
   onLogout,
 }: AppLayoutProps) {
+  const isGreenhousesRoute =
+    routeState.route === 'greenhouses' || routeState.route === 'greenhouse';
+
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Основная навигация">
@@ -34,7 +40,13 @@ function AppLayout({
             {navItems.map((item) => (
               <a
                 key={item.path}
-                className={item.route === route ? 'active' : ''}
+                className={
+                  item.route === 'greenhouses' && isGreenhousesRoute
+                    ? 'active'
+                    : item.route === routeState.route
+                      ? 'active'
+                      : ''
+                }
                 href={item.path}
               >
                 {item.label}
@@ -52,18 +64,30 @@ function AppLayout({
       </aside>
 
       <main className="workspace">
-        <h1>{routeTitles[route]}</h1>
-        {route === 'profile' ? (
-          <ProfilePage
+        {routeState.route === 'profile' ? (
+          <>
+            <h1>{routeTitles.profile}</h1>
+            <ProfilePage
+              token={token}
+              user={user}
+              onUserUpdate={onUserUpdate}
+              onAuthExpired={onAuthExpired}
+              onLogout={onLogout}
+            />
+          </>
+        ) : isGreenhousesRoute ? (
+          <GreenhousesPage
             token={token}
-            user={user}
-            onUserUpdate={onUserUpdate}
-            onLogout={onLogout}
+            routeState={routeState}
+            onAuthExpired={onAuthExpired}
           />
         ) : (
-          <section className="empty-state">
-            <p>Раздел находится в разработке.</p>
-          </section>
+          <>
+            <h1>{routeTitles[routeState.route]}</h1>
+            <section className="empty-state">
+              <p>Раздел находится в разработке.</p>
+            </section>
+          </>
         )}
       </main>
     </div>

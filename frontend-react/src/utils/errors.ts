@@ -2,14 +2,31 @@ function translateErrorMessage(message: string) {
   const normalized = message.trim().toLowerCase();
   const translations: Record<string, string> = {
     'incorrect email or password': 'Неверный email или пароль.',
+    'invalid authentication credentials': 'Сессия истекла. Войдите заново.',
+    'not authenticated': 'Сессия истекла. Войдите заново.',
+    'user not found for provided token': 'Сессия истекла. Войдите заново.',
     'user with this email already exists': 'Пользователь с таким email уже существует.',
+    'greenhouse not found': 'Теплица не найдена.',
+    'greenhouse not found for current user': 'Теплица не найдена.',
+    'device not found for current user': 'Устройство не найдено.',
+    'device with this serial number already exists': 'Устройство с таким серийным номером уже существует.',
+    'device not registered on thingsboard': 'Устройство не найдено в ThingsBoard.',
+    'thingsboard configuration missing': 'Не настроена интеграция ThingsBoard.',
+    'thingsboard url is not configured': 'Не задан адрес ThingsBoard.',
+    'failed to contact thingsboard': 'Не удалось связаться с ThingsBoard.',
+    'failed to authenticate against thingsboard': 'Не удалось авторизоваться в ThingsBoard.',
+    'thingsboard login response did not return a token': 'Не удалось получить токен авторизации от ThingsBoard.',
     'field required': 'Заполните обязательные поля.',
     'value is not a valid email address': 'Введите корректный email.',
     'input should be a valid email address': 'Введите корректный email.',
     'string should have at least 6 characters': 'Пароль должен быть не короче 6 символов.',
   };
 
-  return translations[normalized] || message;
+  if (translations[normalized]) {
+    return translations[normalized];
+  }
+
+  return /[A-Za-z]/.test(message) ? 'Произошла ошибка. Попробуйте ещё раз.' : message;
 }
 
 export async function getErrorMessage(response: Response, fallback: string) {

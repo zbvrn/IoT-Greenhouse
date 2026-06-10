@@ -3,11 +3,14 @@ import type { LoginResponse, User } from '../types';
 import { getErrorMessage, getRequestErrorMessage } from '../utils/errors';
 
 type LoginPageProps = {
-  successMessage: string;
+  notice: {
+    text: string;
+    type: 'success' | 'error';
+  } | null;
   onLogin: (token: string, user: User) => void;
 };
 
-function LoginPage({ successMessage, onLogin }: LoginPageProps) {
+function LoginPage({ notice, onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -75,7 +78,9 @@ function LoginPage({ successMessage, onLogin }: LoginPageProps) {
               required
             />
           </label>
-          {successMessage && <p className="form-success">{successMessage}</p>}
+          {notice && (
+            <p className={notice.type === 'error' ? 'form-error' : 'form-success'}>{notice.text}</p>
+          )}
           {error && <p className="form-error">{error}</p>}
           <button className="primary-action" type="submit" disabled={isLoading}>
             {isLoading ? 'Вход...' : 'Войти'}

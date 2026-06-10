@@ -8,6 +8,18 @@ beforeEach(() => {
   jest.restoreAllMocks();
 });
 
+function getRequestUrl(input: RequestInfo | URL) {
+  if (typeof input === 'string') {
+    return input;
+  }
+
+  if (input instanceof URL) {
+    return input.toString();
+  }
+
+  return input.url;
+}
+
 test('renders login screen with registration link', () => {
   render(<App />);
 
@@ -26,13 +38,43 @@ test('renders registration screen', () => {
   expect(screen.getByRole('link', { name: 'Войти' })).toBeInTheDocument();
 });
 
-test('renders app navigation for authenticated user', () => {
+test('renders app navigation for authenticated user', async () => {
   localStorage.setItem('access_token', 'demo-token');
   localStorage.setItem(
     'user',
     JSON.stringify({ id: 1, email: 'user@mail.com', full_name: 'Иван Петров' })
   );
   window.location.hash = '#/greenhouses';
+  jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    const url = getRequestUrl(input);
+
+    if (url.includes('/api/greenhouses/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 1,
+            name: 'Южная теплица',
+            location: 'Участок 12',
+            is_active: true,
+            metadata: null,
+            created_at: '2026-06-01T10:00:00Z',
+            updated_at: '2026-06-09T10:00:00Z',
+            user_id: 1,
+          },
+        ],
+      } as Response);
+    }
+
+    if (url.includes('/api/devices/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [],
+      } as Response);
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
 
   render(<App />);
 
@@ -42,6 +84,8 @@ test('renders app navigation for authenticated user', () => {
   expect(screen.getByText('Иван Петров')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Выйти' })).toBeInTheDocument();
   expect(screen.queryByText('Панель управления')).not.toBeInTheDocument();
+  expect(screen.getByText('Загружаем теплицы и устройства...')).toBeInTheDocument();
+  await screen.findByRole('heading', { name: 'Теплицы' });
 });
 
 test('renders profile page with account controls', async () => {
@@ -67,6 +111,182 @@ test('renders profile page with account controls', async () => {
   expect(screen.getByRole('heading', { name: 'Смена пароля' })).toBeInTheDocument();
   expect(screen.getByPlaceholderText('Минимум 6 символов')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Выйти из аккаунта' })).toBeInTheDocument();
+});
+
+test('renders greenhouse list page with helper panels', async () => {
+  localStorage.setItem('access_token', 'demo-token');
+  localStorage.setItem(
+    'user',
+    JSON.stringify({ id: 1, email: 'user@mail.com', full_name: 'Иван Петров' })
+  );
+  window.location.hash = '#/greenhouses';
+  jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    const url = getRequestUrl(input);
+
+    if (url.includes('/api/greenhouses/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 1,
+            name: 'Южная теплица',
+            location: 'Участок 12',
+            is_active: true,
+            metadata: null,
+            created_at: '2026-06-01T10:00:00Z',
+            updated_at: '2026-06-09T10:00:00Z',
+            user_id: 1,
+          },
+        ],
+      } as Response);
+    }
+
+    if (url.includes('/api/devices/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 11,
+            name: 'Форточка север',
+            serial_number: 'GH-001',
+            is_active: true,
+            last_seen: '2026-06-09T10:00:00Z',
+            metadata: { device_type: 'window_opener', capabilities: ['open', 'close'] },
+            greenhouse_id: null,
+            user_id: 1,
+          },
+        ],
+      } as Response);
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+
+  render(<App />);
+
+  await screen.findByRole('heading', { name: 'Теплицы' });
+  expect(screen.getByRole('heading', { name: 'Новая теплица' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Нераспределённые устройства' })).toBeInTheDocument();
+  expect(screen.getAllByText('Южная теплица').length).toBeGreaterThan(0);
+  expect(screen.getByText('Форточка север')).toBeInTheDocument();
+  expect(screen.getByText(/Система проверит, зарегистрировано ли устройство/)).toBeInTheDocument();
+});
+
+test('renders greenhouse detail page with automation and devices', async () => {
+  localStorage.setItem('access_token', 'demo-token');
+  localStorage.setItem(
+    'user',
+    JSON.stringify({ id: 1, email: 'user@mail.com', full_name: 'Иван Петров' })
+  );
+  window.location.hash = '#/greenhouses/1';
+  jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    const url = getRequestUrl(input);
+
+    if (url.endsWith('/api/greenhouses/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 1,
+            name: 'Южная теплица',
+            location: 'Участок 12',
+            is_active: true,
+            metadata: null,
+            created_at: '2026-06-01T10:00:00Z',
+            updated_at: '2026-06-09T10:00:00Z',
+            user_id: 1,
+          },
+        ],
+      } as Response);
+    }
+
+    if (url.endsWith('/api/greenhouses/1')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          id: 1,
+          name: 'Южная теплица',
+          location: 'Участок 12',
+          is_active: true,
+          metadata: null,
+          created_at: '2026-06-01T10:00:00Z',
+          updated_at: '2026-06-09T10:00:00Z',
+          user_id: 1,
+        }),
+      } as Response);
+    }
+
+    if (url.endsWith('/api/greenhouses/1/automation/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          id: 1,
+          greenhouse_id: 1,
+          auto_mode: true,
+          target_temperature: 26,
+          hysteresis: 2,
+          last_action: 'open',
+          last_action_at: '2026-06-09T10:00:00Z',
+          updated_at: '2026-06-09T10:00:00Z',
+        }),
+      } as Response);
+    }
+
+    if (url.endsWith('/api/devices/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 11,
+            name: 'Форточка север',
+            serial_number: 'GH-001',
+            is_active: true,
+            last_seen: '2026-06-09T10:00:00Z',
+            metadata: { device_type: 'window_opener', capabilities: ['open', 'close'] },
+            greenhouse_id: 1,
+            user_id: 1,
+          },
+        ],
+      } as Response);
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+
+  render(<App />);
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Южная теплица' })).toBeInTheDocument();
+  });
+  expect(screen.getByRole('heading', { name: 'Сведения о теплице' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Автоматика' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Устройства теплицы' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Как подключить устройство' })).toBeInTheDocument();
+  expect(screen.getByText('Форточка север')).toBeInTheDocument();
+});
+
+test('redirects to login when stored token is invalid', async () => {
+  localStorage.setItem('access_token', 'expired-token');
+  localStorage.setItem(
+    'user',
+    JSON.stringify({ id: 1, email: 'user@mail.com', full_name: 'Иван Петров' })
+  );
+  window.location.hash = '#/profile';
+  jest.spyOn(global, 'fetch').mockResolvedValue({
+    ok: false,
+    status: 401,
+    json: async () => ({ detail: 'Invalid authentication credentials' }),
+  } as Response);
+
+  render(<App />);
+
+  await waitFor(() => {
+    expect(screen.getByRole('heading', { name: 'Вход' })).toBeInTheDocument();
+  });
+  expect(screen.getByText('Сессия истекла. Войдите заново.')).toBeInTheDocument();
+  expect(screen.queryByText('Invalid authentication credentials')).not.toBeInTheDocument();
+  expect(localStorage.getItem('access_token')).toBeNull();
+  expect(localStorage.getItem('user')).toBeNull();
 });
 
 test('translates login API errors to Russian', async () => {

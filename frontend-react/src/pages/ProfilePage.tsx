@@ -7,10 +7,11 @@ type ProfilePageProps = {
   token: string;
   user: User | null;
   onUserUpdate: (user: User) => void;
+  onAuthExpired: () => void;
   onLogout: () => void;
 };
 
-function ProfilePage({ token, user, onUserUpdate, onLogout }: ProfilePageProps) {
+function ProfilePage({ token, user, onUserUpdate, onAuthExpired, onLogout }: ProfilePageProps) {
   const [profileUser, setProfileUser] = useState<User | null>(user);
   const [nameDraft, setNameDraft] = useState(user?.full_name?.trim() || '');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -40,6 +41,11 @@ function ProfilePage({ token, user, onUserUpdate, onLogout }: ProfilePageProps) 
         });
 
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            onAuthExpired();
+            return;
+          }
+
           throw new Error(await getErrorMessage(response, 'Не удалось загрузить профиль.'));
         }
 
@@ -64,7 +70,7 @@ function ProfilePage({ token, user, onUserUpdate, onLogout }: ProfilePageProps) 
     return () => {
       isMounted = false;
     };
-  }, [onUserUpdate, token]);
+  }, [onAuthExpired, onUserUpdate, token]);
 
   const currentUser = profileUser || user;
   const currentName = getDisplayName(currentUser);
@@ -100,6 +106,11 @@ function ProfilePage({ token, user, onUserUpdate, onLogout }: ProfilePageProps) 
       });
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          onAuthExpired();
+          return;
+        }
+
         throw new Error(await getErrorMessage(response, 'Не удалось сохранить изменения.'));
       }
 
@@ -151,6 +162,11 @@ function ProfilePage({ token, user, onUserUpdate, onLogout }: ProfilePageProps) 
       });
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          onAuthExpired();
+          return;
+        }
+
         throw new Error(await getErrorMessage(response, 'Не удалось изменить пароль.'));
       }
 
