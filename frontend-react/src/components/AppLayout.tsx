@@ -1,5 +1,6 @@
 import { navItems, routeTitles } from '../constants/routes';
 import GreenhousesPage from '../pages/greenhouses/GreenhousesPage';
+import ManifestGreenhousesPage from '../pages/manifest-greenhouses/ManifestGreenhousesPage';
 import ProfilePage from '../pages/ProfilePage';
 import type { RouteState, User } from '../types';
 
@@ -24,6 +25,8 @@ function AppLayout({
 }: AppLayoutProps) {
   const isGreenhousesRoute =
     routeState.route === 'greenhouses' || routeState.route === 'greenhouse';
+  const isManifestGreenhousesRoute =
+    routeState.route === 'greenhouses-new' || routeState.route === 'greenhouse-new';
 
   return (
     <div className="app-shell">
@@ -43,6 +46,8 @@ function AppLayout({
                 className={
                   item.route === 'greenhouses' && isGreenhousesRoute
                     ? 'active'
+                    : item.route === 'greenhouses-new' && isManifestGreenhousesRoute
+                      ? 'active'
                     : item.route === routeState.route
                       ? 'active'
                       : ''
@@ -77,6 +82,12 @@ function AppLayout({
           </>
         ) : isGreenhousesRoute ? (
           <GreenhousesPage
+            token={token}
+            routeState={routeState}
+            onAuthExpired={onAuthExpired}
+          />
+        ) : isManifestGreenhousesRoute ? (
+          <ManifestGreenhousesPage
             token={token}
             routeState={routeState}
             onAuthExpired={onAuthExpired}

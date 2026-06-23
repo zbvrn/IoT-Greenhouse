@@ -380,9 +380,370 @@ button:disabled {
 }
 
 .greenhouses-page,
-.greenhouse-detail {
+.greenhouse-detail,
+.manifest-page {
   display: grid;
   gap: 16px;
+}
+
+.manifest-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  padding: 14px 16px;
+}
+
+.manifest-loading {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  padding: 28px;
+}
+
+.manifest-loading strong {
+  font-family: var(--font-heading);
+  font-size: 18px;
+}
+
+.manifest-loading p {
+  margin: 4px 0 0;
+  color: var(--color-gray);
+}
+
+.manifest-spinner {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 4px solid rgba(25, 58, 60, 0.16);
+  border-top-color: var(--color-deep);
+  border-radius: 50%;
+  animation: manifest-spin 0.8s linear infinite;
+}
+
+@keyframes manifest-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.manifest-add-device {
+  display: grid;
+  gap: 14px;
+}
+
+.manifest-add-device__form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.manifest-add-device__action {
+  display: flex;
+  align-items: end;
+}
+
+.manifest-toolbar > div {
+  display: grid;
+  gap: 3px;
+}
+
+.manifest-toolbar strong {
+  font-family: var(--font-heading);
+  font-size: 16px;
+}
+
+.manifest-toolbar span {
+  color: var(--color-gray);
+  font-size: 13px;
+}
+
+.manifest-toolbar > .manifest-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.manifest-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow-y: auto;
+  background: rgba(10, 29, 30, 0.58);
+  padding: 24px;
+}
+
+.manifest-modal {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  box-shadow: 0 24px 70px rgba(10, 29, 30, 0.24);
+}
+
+.manifest-modal__header {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-white);
+  padding: 16px 20px;
+}
+
+.manifest-modal__header h2 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 21px;
+  font-weight: 600;
+}
+
+.manifest-modal__close {
+  display: grid;
+  width: 36px;
+  min-height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-color: var(--color-line);
+  background: transparent;
+  color: var(--color-deep);
+  font-size: 25px;
+  line-height: 1;
+  padding: 0;
+}
+
+.manifest-modal__body {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+}
+
+.manifest-modal__intro {
+  margin: 0;
+  color: var(--color-gray);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.manifest-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.empty-block button {
+  margin-top: 12px;
+}
+
+.manifest-greenhouse-grid,
+.manifest-device-list {
+  display: grid;
+  gap: 14px;
+}
+
+.manifest-greenhouse-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.manifest-greenhouse-card {
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  padding: 20px;
+  color: var(--color-deep);
+  text-decoration: none;
+}
+
+.manifest-greenhouse-card:hover {
+  border-color: var(--color-deep);
+  background: #fbfbf8;
+}
+
+.manifest-greenhouse-card__header,
+.manifest-device__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.manifest-greenhouse-card h2,
+.manifest-device h3,
+.manifest-device h4 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+.manifest-greenhouse-card h2 {
+  font-size: 22px;
+}
+
+.manifest-greenhouse-card .eyebrow,
+.manifest-device .eyebrow {
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.manifest-greenhouse-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.manifest-greenhouse-card__metrics > div,
+.manifest-state-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper);
+  padding: 12px;
+}
+
+.manifest-greenhouse-card__metrics span,
+.manifest-state-card > span {
+  color: var(--color-gray);
+  font-size: 12px;
+}
+
+.manifest-greenhouse-card__metrics strong {
+  font-size: 18px;
+}
+
+.manifest-card-link {
+  font-weight: 600;
+}
+
+.manifest-device {
+  display: grid;
+  gap: 18px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  padding: clamp(16px, 2vw, 22px);
+}
+
+.manifest-device h3 {
+  font-size: 21px;
+}
+
+.manifest-device__header p:last-child {
+  margin: 5px 0 0;
+  color: var(--color-gray);
+  font-size: 13px;
+}
+
+.manifest-device__header .manifest-data-date {
+  color: var(--color-deep);
+  font-weight: 500;
+}
+
+.manifest-state-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.manifest-state-card strong {
+  font-family: var(--font-heading);
+  font-size: 23px;
+  font-weight: 600;
+}
+
+.manifest-state-card small,
+.manifest-parameter-grid small {
+  color: var(--color-gray);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.manifest-command-box,
+.manifest-parameters {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid var(--color-line);
+  padding-top: 16px;
+}
+
+.manifest-command-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manifest-stop-button {
+  border-color: #7a1f1f;
+  background: transparent;
+  color: #7a1f1f;
+}
+
+.manifest-stop-button:hover:not(:disabled) {
+  border-color: #7a1f1f;
+  background: #f7e7e2;
+  color: #7a1f1f;
+}
+
+.manifest-parameter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.manifest-parameter-grid label {
+  align-content: start;
+}
+
+.manifest-input-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+}
+
+.manifest-input-wrap:focus-within {
+  border-color: var(--color-deep);
+  outline: 2px solid var(--color-leaf);
+}
+
+.manifest-input-wrap input {
+  border: 0;
+  outline: 0;
+}
+
+.manifest-input-wrap > span {
+  padding: 0 10px;
+  color: var(--color-gray);
+  font-size: 13px;
+}
+
+.manifest-inline-warning {
+  margin: 0;
+  border-left: 3px solid #b17a23;
+  background: #faf4e8;
+  padding: 10px 12px;
+  color: #69501f;
+  font-size: 13px;
 }
 
 .page-intro {
@@ -707,7 +1068,8 @@ button:disabled {
   .page-intro,
   .greenhouses-actions,
   .greenhouses-content,
-  .greenhouse-detail__layout {
+  .greenhouse-detail__layout,
+  .manifest-greenhouse-grid {
     grid-template-columns: 1fr;
   }
 
@@ -721,7 +1083,40 @@ button:disabled {
   }
 
   .greenhouse-card__stats,
-  .device-card__meta {
+  .device-card__meta,
+  .manifest-state-grid,
+  .manifest-parameter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manifest-toolbar,
+  .manifest-device__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manifest-add-device__form {
+    grid-template-columns: 1fr;
+  }
+
+  .manifest-toolbar button {
+    width: 100%;
+  }
+
+  .manifest-toolbar > .manifest-toolbar__actions {
+    width: 100%;
+  }
+
+  .manifest-modal-backdrop {
+    align-items: end;
+    padding: 12px;
+  }
+
+  .manifest-modal {
+    max-height: calc(100vh - 24px);
+  }
+
+  .manifest-greenhouse-card__metrics {
     grid-template-columns: 1fr;
   }
 }

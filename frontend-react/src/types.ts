@@ -1,4 +1,12 @@
-export type AppRoute = 'login' | 'register' | 'greenhouses' | 'greenhouse' | 'notifications' | 'profile';
+export type AppRoute =
+  | 'login'
+  | 'register'
+  | 'greenhouses'
+  | 'greenhouse'
+  | 'greenhouses-new'
+  | 'greenhouse-new'
+  | 'notifications'
+  | 'profile';
 
 export type RouteState = {
   greenhouseId: number | null;
@@ -48,4 +56,16 @@ export type AutomationSetting = {
   last_action?: string | null;
   last_action_at?: string | null;
   updated_at: string;
+};
+
+export type TelemetrySample = {
+  ts: number;
+  value: unknown;
+};
+
+export type DeviceTelemetry = {
+  device_id: number;
+  serial_number: string;
+  telemetry: Record<string, TelemetrySample[]>;
+  retrieved_at: string;
 };

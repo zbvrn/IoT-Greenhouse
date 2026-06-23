@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import App from './App';
 
 beforeEach(() => {
@@ -263,6 +263,225 @@ test('renders greenhouse detail page with automation and devices', async () => {
   expect(screen.getByRole('heading', { name: 'Устройства теплицы' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Как подключить устройство' })).toBeInTheDocument();
   expect(screen.getByText('Форточка север')).toBeInTheDocument();
+});
+
+test('renders manifest greenhouse page with live telemetry', async () => {
+  localStorage.setItem('access_token', 'demo-token');
+  localStorage.setItem(
+    'user',
+    JSON.stringify({ id: 1, email: 'user@mail.com', full_name: 'Иван Петров' })
+  );
+  window.location.hash = '#/greenhouses-new/1';
+  jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    const url = getRequestUrl(input);
+
+    if (url.endsWith('/api/greenhouses/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 1,
+            name: 'Южная теплица',
+            location: 'Участок 12',
+            is_active: true,
+            metadata: null,
+            created_at: '2026-06-01T10:00:00Z',
+            updated_at: '2026-06-09T10:00:00Z',
+            user_id: 1,
+          },
+        ],
+      } as Response);
+    }
+
+    if (url.endsWith('/api/devices/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 11,
+            name: 'Датчик климата',
+            serial_number: 'SENSOR-001',
+            is_active: true,
+            last_seen: '2026-06-23T10:00:00Z',
+            metadata: { device_type: 'sensor' },
+            greenhouse_id: 1,
+            user_id: 1,
+          },
+        ],
+      } as Response);
+    }
+
+    if (url.endsWith('/api/telemetry/11')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          device_id: 11,
+          serial_number: 'SENSOR-001',
+          retrieved_at: '2026-06-23T10:00:00Z',
+          telemetry: {
+            temperature: [{ ts: 10, value: '24.6' }],
+            humidity: [{ ts: 10, value: '61' }],
+          },
+        }),
+      } as Response);
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+
+  render(<App />);
+
+  await screen.findByRole('heading', { name: 'Южная теплица' });
+  expect(screen.getByText('24.6 °C')).toBeInTheDocument();
+  expect(screen.getByText('61 %')).toBeInTheDocument();
+  expect(screen.getByText(/последние данные/)).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Параметры управления' })).toBeInTheDocument();
+});
+
+test('sends actuator command from manifest greenhouse page', async () => {
+  localStorage.setItem('access_token', 'demo-token');
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'user@mail.com' }));
+  window.location.hash = '#/greenhouses-new/1';
+  const fetchMock = jest.spyOn(global, 'fetch').mockImplementation((input, init) => {
+    const url = getRequestUrl(input);
+
+    if (url.endsWith('/api/greenhouses/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 1,
+            name: 'Южная теплица',
+            is_active: true,
+            metadata: null,
+            created_at: '2026-06-01T10:00:00Z',
+            updated_at: '2026-06-09T10:00:00Z',
+            user_id: 1,
+          },
+        ],
+      } as Response);
+    }
+
+    if (url.endsWith('/api/devices/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 12,
+            name: 'Привод форточки',
+            serial_number: 'ACT-001',
+            is_active: true,
+            last_seen: null,
+            metadata: { device_type: 'actuator' },
+            greenhouse_id: 1,
+            user_id: 1,
+          },
+        ],
+      } as Response);
+    }
+
+    if (url.endsWith('/api/telemetry/12')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          device_id: 12,
+          serial_number: 'ACT-001',
+          retrieved_at: '2026-06-23T10:00:00Z',
+          telemetry: {
+            status: [{ ts: 10, value: 'closed' }],
+            temperature: [{ ts: 9, value: '22.5' }],
+            humidity: [{ ts: 9, value: '65' }],
+          },
+        }),
+      } as Response);
+    }
+
+    if (url.endsWith('/api/rpc/12') && init?.method === 'POST') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ message: 'RPC request sent successfully' }),
+      } as Response);
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+
+  render(<App />);
+  const openButton = await screen.findByRole('button', { name: 'Открыть' });
+  expect(screen.getByText('22.5 °C')).toBeInTheDocument();
+  expect(screen.getByText('65 %')).toBeInTheDocument();
+  fireEvent.click(openButton);
+
+  await screen.findByText('Команда «Открыть» отправлена устройству.');
+  expect(fetchMock).toHaveBeenCalledWith(
+    '/api/rpc/12',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        method: 'setActuatorState',
+        params: { state: 'open' },
+      }),
+    })
+  );
+});
+
+test('creates greenhouse from modal on new greenhouse page', async () => {
+  localStorage.setItem('access_token', 'demo-token');
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'user@mail.com' }));
+  window.location.hash = '#/greenhouses-new';
+  const fetchMock = jest.spyOn(global, 'fetch').mockImplementation((input, init) => {
+    const url = getRequestUrl(input);
+
+    if (url.endsWith('/api/greenhouses/') && init?.method === 'POST') {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          id: 2,
+          name: 'Теплица у дома',
+          location: 'Южная сторона',
+          is_active: true,
+          metadata: null,
+          created_at: '2026-06-23T10:00:00Z',
+          updated_at: '2026-06-23T10:00:00Z',
+          user_id: 1,
+        }),
+      } as Response);
+    }
+
+    if (url.endsWith('/api/greenhouses/')) {
+      return Promise.resolve({ ok: true, json: async () => [] } as Response);
+    }
+
+    if (url.endsWith('/api/devices/')) {
+      return Promise.resolve({ ok: true, json: async () => [] } as Response);
+    }
+
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+
+  render(<App />);
+
+  const addButton = await screen.findByRole('button', { name: 'Добавить теплицу' });
+  fireEvent.click(addButton);
+
+  const dialog = screen.getByRole('dialog', { name: 'Добавить теплицу' });
+  fireEvent.change(within(dialog).getByPlaceholderText('Например, Теплица у дома'), {
+    target: { value: 'Теплица у дома' },
+  });
+  fireEvent.change(within(dialog).getByPlaceholderText('Например, Южная сторона участка'), {
+    target: { value: 'Южная сторона' },
+  });
+  fireEvent.click(within(dialog).getByRole('button', { name: 'Добавить теплицу' }));
+
+  await screen.findByRole('heading', { name: 'Теплица у дома' });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledWith(
+    '/api/greenhouses/',
+    expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({ name: 'Теплица у дома', location: 'Южная сторона' }),
+    })
+  );
 });
 
 test('redirects to login when stored token is invalid', async () => {
