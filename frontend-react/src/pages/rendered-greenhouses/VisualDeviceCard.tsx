@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Device, DeviceTelemetry } from '../../types';
 import { getRequestErrorMessage } from '../../utils/errors';
-import { getStoredParameter, type ManifestParameter } from '../manifest-greenhouses/manifestModel';
+import {
+  getStoredParameter,
+  type ManifestParameter,
+} from '../manifest-greenhouses/manifestModel';
 import { buildVisualDevice, formatLastDataDate, type VisualMetric } from './visualDeviceModel';
 
 type Props = {
@@ -234,9 +237,6 @@ function VisualDeviceCard({ device, telemetry, telemetryError, onCommand, onSave
           <h3>{device.name}</h3>
           <p>ID {device.serial_number}</p>
         </div>
-        <span className={device.is_active ? 'status-pill' : 'status-pill status-pill--muted'}>
-          {device.is_active ? 'Активно' : 'Отключено'}
-        </span>
       </header>
 
       <div className="render-device-card__body">
@@ -281,7 +281,7 @@ function VisualDeviceCard({ device, telemetry, telemetryError, onCommand, onSave
             {(['open', 'close', 'stop'] as const).map((command) => (
               <button
                 className={command === 'stop' ? 'manifest-stop-button' : command === 'close' ? 'secondary-action' : ''}
-                disabled={Boolean(pendingCommand) || !device.is_active}
+                disabled={Boolean(pendingCommand)}
                 key={command}
                 type="button"
                 onClick={() => handleCommand(command)}

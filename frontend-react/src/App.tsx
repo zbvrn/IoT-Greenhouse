@@ -25,7 +25,7 @@ function App() {
     window.addEventListener('hashchange', handleHashChange);
 
     if (!window.location.hash) {
-      window.location.hash = token ? '#/greenhouses' : '#/login';
+      window.location.hash = token ? '#/my-greenhouses' : '#/login';
     }
 
     return () => window.removeEventListener('hashchange', handleHashChange);
@@ -44,7 +44,7 @@ function App() {
     setToken(nextToken);
     setUser(nextUser);
     setAuthNotice(null);
-    window.location.hash = '#/greenhouses';
+    window.location.hash = '#/my-greenhouses';
   };
 
   const handleUserUpdate = useCallback((nextUser: User) => {

@@ -44,9 +44,6 @@ function DeviceCard({ device, greenhouses, onAssign, fixedGreenhouseId }: Device
           <h4>{device.name}</h4>
           <p>{getDeviceTypeLabel(device)}</p>
         </div>
-        <span className={device.is_active ? 'status-pill' : 'status-pill status-pill--muted'}>
-          {device.is_active ? 'Активно' : 'Отключено'}
-        </span>
       </div>
 
       <dl className="device-card__meta">

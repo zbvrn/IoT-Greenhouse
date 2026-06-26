@@ -1,5 +1,9 @@
 import type { Device, DeviceTelemetry, Greenhouse, RouteState } from '../../types';
-import { formatTelemetryValue, getLatestTelemetryValue, temperatureStates } from '../manifest-greenhouses/manifestModel';
+import {
+  formatTelemetryValue,
+  getLatestTelemetryValue,
+  temperatureStates,
+} from '../manifest-greenhouses/manifestModel';
 import { useManifestGreenhouses } from '../manifest-greenhouses/useManifestGreenhouses';
 import VisualDeviceCard from './VisualDeviceCard';
 
@@ -123,7 +127,6 @@ function RenderedGreenhouseDetail({
   onSaveSettings: (device: Device, values: Record<string, number>) => Promise<Device>;
 }) {
   const greenhouseDevices = getGreenhouseDevices(greenhouse, devices);
-  const activeDevices = greenhouseDevices.filter((device) => device.is_active).length;
 
   return (
     <div className="render-page">
@@ -143,10 +146,6 @@ function RenderedGreenhouseDetail({
           <div>
             <dt>Устройств</dt>
             <dd>{greenhouseDevices.length}</dd>
-          </div>
-          <div>
-            <dt>Активных</dt>
-            <dd>{activeDevices}</dd>
           </div>
           <div>
             <dt>Показания</dt>
@@ -252,10 +251,6 @@ function RenderedGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
           <div>
             <dt>Устройств</dt>
             <dd>{devices.length}</dd>
-          </div>
-          <div>
-            <dt>Активных</dt>
-            <dd>{devices.filter((device) => device.is_active).length}</dd>
           </div>
           <div>
             <dt>Данные</dt>

@@ -1,5 +1,35 @@
 function translateErrorMessage(message: string) {
   const normalized = message.trim().toLowerCase();
+
+  if (normalized.includes('thingsboard rpc request failed (503)')) {
+    return 'Устройство сейчас не подключено к каналу управления. Проверьте его подключение и попробуйте снова.';
+  }
+
+  if (
+    normalized.includes('thingsboard rpc request failed (504)') ||
+    (normalized.includes('rpc') && normalized.includes('timeout'))
+  ) {
+    return 'Устройство не ответило на команду вовремя. Проверьте его подключение и попробуйте снова.';
+  }
+
+  if (normalized.includes('thingsboard rpc request failed (404)')) {
+    return 'Устройство не найдено в ThingsBoard. Проверьте номер устройства.';
+  }
+
+  if (
+    normalized.includes('thingsboard rpc request failed (401)') ||
+    normalized.includes('thingsboard rpc request failed (403)')
+  ) {
+    return 'Серверу не удалось авторизоваться в ThingsBoard. Попробуйте позже.';
+  }
+
+  if (
+    normalized.includes('failed to send rpc request to thingsboard') ||
+    normalized.includes('failed to send rpc request: failed to authenticate against thingsboard')
+  ) {
+    return 'Сейчас нет связи с ThingsBoard. Попробуйте отправить команду позже.';
+  }
+
   const translations: Record<string, string> = {
     'incorrect email or password': 'Неверный email или пароль.',
     'invalid authentication credentials': 'Сессия истекла. Войдите заново.',

@@ -1,6 +1,8 @@
 export type AppRoute =
   | 'login'
   | 'register'
+  | 'my-greenhouses'
+  | 'my-greenhouse'
   | 'greenhouses'
   | 'greenhouse'
   | 'greenhouses-new'
@@ -46,6 +48,7 @@ export type Device = {
   is_active: boolean;
   last_seen?: string | null;
   metadata?: Record<string, unknown> | null;
+  device_metadata?: Record<string, unknown> | null;
   greenhouse_id?: number | null;
   user_id: number;
 };

@@ -139,8 +139,8 @@ function TestPage() {
             <dd>{mockDevices.length}</dd>
           </div>
           <div>
-            <dt>Активных</dt>
-            <dd>{mockDevices.filter((device) => device.is_active).length}</dd>
+            <dt>Типов</dt>
+            <dd>5</dd>
           </div>
           <div>
             <dt>Температура</dt>

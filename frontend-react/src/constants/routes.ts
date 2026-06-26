@@ -1,6 +1,7 @@
 import type { AppRoute, RouteState } from '../types';
 
 export const navItems: Array<{ label: string; path: string; route: AppRoute }> = [
+  { label: 'Мои теплицы', path: '#/my-greenhouses', route: 'my-greenhouses' },
   { label: 'Теплицы', path: '#/greenhouses', route: 'greenhouses' },
   { label: 'Теплицы новое', path: '#/greenhouses-new', route: 'greenhouses-new' },
   { label: 'Теплицы отрисовка', path: '#/greenhouses-render', route: 'greenhouses-render' },
@@ -12,6 +13,8 @@ export const navItems: Array<{ label: string; path: string; route: AppRoute }> =
 export const routeTitles: Record<AppRoute, string> = {
   login: 'Вход',
   register: 'Регистрация',
+  'my-greenhouses': 'Мои теплицы',
+  'my-greenhouse': 'Управление теплицей',
   greenhouses: 'Теплицы',
   greenhouse: 'Теплица',
   'greenhouses-new': 'Теплицы новое',
@@ -31,6 +34,14 @@ export function getRouteStateFromHash(hash: string): RouteState {
   if (section === 'notifications') return { route: 'notifications', greenhouseId: null };
   if (section === 'profile') return { route: 'profile', greenhouseId: null };
   if (section === 'test') return { route: 'test', greenhouseId: null };
+  if (section === 'my-greenhouses' && greenhouseId) {
+    const parsedId = Number(greenhouseId);
+    return {
+      route: Number.isFinite(parsedId) ? 'my-greenhouse' : 'my-greenhouses',
+      greenhouseId: Number.isFinite(parsedId) ? parsedId : null,
+    };
+  }
+  if (section === 'my-greenhouses') return { route: 'my-greenhouses', greenhouseId: null };
   if (section === 'greenhouses-new' && greenhouseId) {
     const parsedId = Number(greenhouseId);
     return {

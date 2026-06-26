@@ -412,9 +412,6 @@ function DevicePanel({
             </p>
           )}
         </div>
-        <span className={device.is_active ? 'status-pill' : 'status-pill status-pill--muted'}>
-          {device.is_active ? 'Активно' : 'Отключено'}
-        </span>
       </header>
 
       <div className="manifest-state-grid">
@@ -445,7 +442,7 @@ function DevicePanel({
           <div className="manifest-command-buttons">
             <button
               type="button"
-              disabled={Boolean(pendingCommand) || !device.is_active}
+              disabled={Boolean(pendingCommand)}
               onClick={() => handleCommand('open')}
             >
               {pendingCommand === 'open' ? 'Отправляем...' : 'Открыть'}
@@ -453,7 +450,7 @@ function DevicePanel({
             <button
               className="secondary-action"
               type="button"
-              disabled={Boolean(pendingCommand) || !device.is_active}
+              disabled={Boolean(pendingCommand)}
               onClick={() => handleCommand('close')}
             >
               {pendingCommand === 'close' ? 'Отправляем...' : 'Закрыть'}
@@ -461,7 +458,7 @@ function DevicePanel({
             <button
               className="manifest-stop-button"
               type="button"
-              disabled={Boolean(pendingCommand) || !device.is_active}
+              disabled={Boolean(pendingCommand)}
               onClick={() => handleCommand('stop')}
             >
               {pendingCommand === 'stop' ? 'Отправляем...' : 'Стоп'}
@@ -577,7 +574,6 @@ function ManifestGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
     }
 
     const greenhouseDevices = devices.filter((device) => device.greenhouse_id === greenhouse.id);
-    const onlineDevices = greenhouseDevices.filter((device) => device.is_active).length;
 
     return (
       <div className="manifest-page">
@@ -597,10 +593,6 @@ function ManifestGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
             <div>
               <dt>Устройств</dt>
               <dd>{greenhouseDevices.length}</dd>
-            </div>
-            <div>
-              <dt>Активных</dt>
-              <dd>{onlineDevices}</dd>
             </div>
             <div>
               <dt>Управление</dt>
@@ -669,7 +661,6 @@ function ManifestGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
   }
 
   const activeGreenhouses = greenhouses.filter((greenhouse) => greenhouse.is_active).length;
-  const activeDevices = devices.filter((device) => device.is_active).length;
 
   return (
     <div className="manifest-page">
@@ -694,10 +685,6 @@ function ManifestGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
           <div>
             <dt>Устройств</dt>
             <dd>{devices.length}</dd>
-          </div>
-          <div>
-            <dt>На связи</dt>
-            <dd>{activeDevices}</dd>
           </div>
         </dl>
       </section>

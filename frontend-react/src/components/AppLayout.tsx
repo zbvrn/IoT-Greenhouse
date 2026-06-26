@@ -1,6 +1,7 @@
 import { navItems, routeTitles } from '../constants/routes';
 import GreenhousesPage from '../pages/greenhouses/GreenhousesPage';
 import ManifestGreenhousesPage from '../pages/manifest-greenhouses/ManifestGreenhousesPage';
+import MyGreenhousesPage from '../pages/my-greenhouses/MyGreenhousesPage';
 import RenderedGreenhousesPage from '../pages/rendered-greenhouses/RenderedGreenhousesPage';
 import ProfilePage from '../pages/ProfilePage';
 import TestPage from '../pages/TestPage';
@@ -27,6 +28,8 @@ function AppLayout({
 }: AppLayoutProps) {
   const isGreenhousesRoute =
     routeState.route === 'greenhouses' || routeState.route === 'greenhouse';
+  const isMyGreenhousesRoute =
+    routeState.route === 'my-greenhouses' || routeState.route === 'my-greenhouse';
   const isManifestGreenhousesRoute =
     routeState.route === 'greenhouses-new' || routeState.route === 'greenhouse-new';
   const isRenderedGreenhousesRoute =
@@ -50,6 +53,8 @@ function AppLayout({
                 className={
                   item.route === 'greenhouses' && isGreenhousesRoute
                     ? 'active'
+                    : item.route === 'my-greenhouses' && isMyGreenhousesRoute
+                      ? 'active'
                     : item.route === 'greenhouses-new' && isManifestGreenhousesRoute
                       ? 'active'
                     : item.route === 'greenhouses-render' && isRenderedGreenhousesRoute
@@ -86,6 +91,12 @@ function AppLayout({
               onLogout={onLogout}
             />
           </>
+        ) : isMyGreenhousesRoute ? (
+          <MyGreenhousesPage
+            token={token}
+            routeState={routeState}
+            onAuthExpired={onAuthExpired}
+          />
         ) : isGreenhousesRoute ? (
           <GreenhousesPage
             token={token}
