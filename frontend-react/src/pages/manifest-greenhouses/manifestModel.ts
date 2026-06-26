@@ -82,24 +82,24 @@ const actuatorStates: ManifestState[] = [
   },
 ];
 
-const temperatureParameters: ManifestParameter[] = [
+export const temperatureParameters: ManifestParameter[] = [
   { key: 'tempMin', label: 'Мин. температура', hint: 'Нижняя граница комфортной температуры', defaultValue: 16, unit: '°C' },
   { key: 'tempMax', label: 'Макс. температура', hint: 'Верхняя граница комфортной температуры', defaultValue: 30, unit: '°C' },
   { key: 'humMin', label: 'Мин. влажность', hint: 'Нижняя граница влажности воздуха', defaultValue: 40, min: 0, max: 100, unit: '%' },
   { key: 'humMax', label: 'Макс. влажность', hint: 'Верхняя граница влажности воздуха', defaultValue: 75, min: 0, max: 100, unit: '%' },
 ];
 
-const soilParameters: ManifestParameter[] = [
+export const soilParameters: ManifestParameter[] = [
   { key: 'moistureMin', label: 'Мин. влажность почвы', hint: 'Ниже этого значения требуется полив', defaultValue: 35, min: 0, max: 100, unit: '%' },
   { key: 'moistureMax', label: 'Макс. влажность почвы', hint: 'При достижении значения полив останавливается', defaultValue: 65, min: 0, max: 100, unit: '%' },
 ];
 
-const actuatorParameters: ManifestParameter[] = [
+export const actuatorParameters: ManifestParameter[] = [
   { key: 'strokeLength', label: 'Ход привода', hint: 'Целевое положение при полном открытии', defaultValue: 250, min: 0, unit: 'мм' },
   { key: 'strokeSpeed', label: 'Скорость привода', hint: 'Скорость открытия и закрытия', defaultValue: 3, min: 0, unit: 'мм/с' },
 ];
 
-const valveParameters: ManifestParameter[] = [
+export const valveParameters: ManifestParameter[] = [
   { key: 'valveOpenPercent', label: 'Лимит открытия клапана', hint: 'Максимальный процент открытия при поливе', defaultValue: 100, min: 0, max: 100, unit: '%' },
 ];
 

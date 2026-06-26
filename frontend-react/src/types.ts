@@ -5,6 +5,9 @@ export type AppRoute =
   | 'greenhouse'
   | 'greenhouses-new'
   | 'greenhouse-new'
+  | 'greenhouses-render'
+  | 'greenhouse-render'
+  | 'test'
   | 'notifications'
   | 'profile';
 

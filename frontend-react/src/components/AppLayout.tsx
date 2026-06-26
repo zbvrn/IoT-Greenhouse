@@ -1,7 +1,9 @@
 import { navItems, routeTitles } from '../constants/routes';
 import GreenhousesPage from '../pages/greenhouses/GreenhousesPage';
 import ManifestGreenhousesPage from '../pages/manifest-greenhouses/ManifestGreenhousesPage';
+import RenderedGreenhousesPage from '../pages/rendered-greenhouses/RenderedGreenhousesPage';
 import ProfilePage from '../pages/ProfilePage';
+import TestPage from '../pages/TestPage';
 import type { RouteState, User } from '../types';
 
 type AppLayoutProps = {
@@ -27,6 +29,8 @@ function AppLayout({
     routeState.route === 'greenhouses' || routeState.route === 'greenhouse';
   const isManifestGreenhousesRoute =
     routeState.route === 'greenhouses-new' || routeState.route === 'greenhouse-new';
+  const isRenderedGreenhousesRoute =
+    routeState.route === 'greenhouses-render' || routeState.route === 'greenhouse-render';
 
   return (
     <div className="app-shell">
@@ -47,6 +51,8 @@ function AppLayout({
                   item.route === 'greenhouses' && isGreenhousesRoute
                     ? 'active'
                     : item.route === 'greenhouses-new' && isManifestGreenhousesRoute
+                      ? 'active'
+                    : item.route === 'greenhouses-render' && isRenderedGreenhousesRoute
                       ? 'active'
                     : item.route === routeState.route
                       ? 'active'
@@ -92,6 +98,14 @@ function AppLayout({
             routeState={routeState}
             onAuthExpired={onAuthExpired}
           />
+        ) : isRenderedGreenhousesRoute ? (
+          <RenderedGreenhousesPage
+            token={token}
+            routeState={routeState}
+            onAuthExpired={onAuthExpired}
+          />
+        ) : routeState.route === 'test' ? (
+          <TestPage />
         ) : (
           <>
             <h1>{routeTitles[routeState.route]}</h1>
