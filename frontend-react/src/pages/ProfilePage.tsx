@@ -75,12 +75,6 @@ function ProfilePage({ token, user, onUserUpdate, onAuthExpired, onLogout }: Pro
   const currentUser = profileUser || user;
   const currentName = getDisplayName(currentUser);
   const email = currentUser?.email || 'Email не указан';
-  const initials = currentName
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
 
   const saveName = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -198,7 +192,7 @@ function ProfilePage({ token, user, onUserUpdate, onAuthExpired, onLogout }: Pro
       <section className="profile-panel profile-hero" aria-labelledby="profile-info-title">
         <div className="profile-identity">
           <span className="profile-avatar" aria-hidden="true">
-            {initials || 'UT'}
+            <img src="/avatar.png" alt="" />
           </span>
           <div>
             <h2 id="profile-info-title">{currentName}</h2>
@@ -303,7 +297,7 @@ function ProfilePage({ token, user, onUserUpdate, onAuthExpired, onLogout }: Pro
       <section className="profile-panel session-panel" aria-labelledby="session-title">
         <div className="section-heading">
           <h2 id="session-title">Сессия</h2>
-          <p>Завершите работу с аккаунтом на этом устройстве.</p>
+          <p>Вернитесь на страницу входа для смены аккаунта.</p>
         </div>
         <button className="secondary-action" type="button" onClick={onLogout}>
           Выйти из аккаунта

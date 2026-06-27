@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Device, DeviceTelemetry, Greenhouse, RouteState, TelemetrySample } from '../../types';
-import { requestJson } from '../../utils/api';
+import { requestJson, requestVoid } from '../../utils/api';
 import { getRequestErrorMessage } from '../../utils/errors';
 
 type Props = {
@@ -9,13 +9,31 @@ type Props = {
   onAuthExpired: () => void;
 };
 
-type ModalName = 'greenhouse-create' | 'greenhouse-edit' | 'device-create' | 'device-add-menu' | null;
+type ModalName =
+  | 'greenhouse-create'
+  | 'greenhouse-edit'
+  | 'greenhouse-delete'
+  | 'device-create'
+  | 'device-add-menu'
+  | null;
 type DeviceKind = 'sensor' | 'soil_sensor' | 'actuator' | 'valve' | 'other';
 type DeviceKindFilter = DeviceKind | 'all';
+type DeviceCommand = 'open' | 'close' | 'stop';
+
+type DeviceUpdatePayload = {
+  name: string;
+  kind: DeviceKind;
+  greenhouseId?: number;
+};
 
 type FieldErrors = {
   name?: string;
   serialNumber?: string;
+};
+
+type SelectOption = {
+  value: string;
+  label: string;
 };
 
 const deviceKindLabels: Record<DeviceKind, string> = {
@@ -30,6 +48,146 @@ const deviceKindFilterLabels: Record<DeviceKindFilter, string> = {
   all: 'Все',
   ...deviceKindLabels,
 };
+
+const telemetryLabels: Record<string, string> = {
+  temperature: 'Температура',
+  humidity: 'Влажность воздуха',
+  soilHumidity: 'Влажность почвы',
+  soilMoisture: 'Влажность почвы',
+  moisture: 'Влажность почвы',
+  position: 'Положение',
+  windowPosition: 'Положение форточки',
+  actuatorOpen: 'Состояние привода',
+  status: 'Состояние',
+  speed: 'Скорость',
+};
+
+const normalizedTelemetryLabels: Record<string, string> = {
+  temperature: 'Температура',
+  humidity: 'Влажность воздуха',
+  soilhumidity: 'Влажность почвы',
+  soilmoisture: 'Влажность почвы',
+  moisture: 'Влажность почвы',
+  position: 'Положение',
+  windowposition: 'Положение форточки',
+  actuatoropen: 'Состояние привода',
+  actuatoropenstate: 'Состояние привода',
+  status: 'Состояние',
+  state: 'Состояние',
+  speed: 'Скорость',
+};
+
+function Dropdown({
+  value,
+  options,
+  onChange,
+  placeholder,
+  disabled = false,
+  placement = 'down',
+  inlineMenu = false,
+}: {
+  value: string;
+  options: SelectOption[];
+  onChange: (value: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+  placement?: 'up' | 'down';
+  inlineMenu?: boolean;
+}) {
+  const listboxId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selectedIndex = options.findIndex((option) => option.value === value);
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(Math.max(selectedIndex, 0));
+  const selectedOption = selectedIndex >= 0 ? options[selectedIndex] : undefined;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => document.removeEventListener('mousedown', closeOnOutsideClick);
+  }, [isOpen]);
+
+  const open = () => {
+    if (disabled) return;
+    setActiveIndex(Math.max(selectedIndex, 0));
+    setIsOpen(true);
+  };
+
+  const choose = (index: number) => {
+    const option = options[index];
+    if (!option) return;
+    onChange(option.value);
+    setActiveIndex(index);
+    setIsOpen(false);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) return;
+    if (event.key === 'Escape') {
+      setIsOpen(false);
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!isOpen) {
+        open();
+        return;
+      }
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      setActiveIndex((current) =>
+        Math.min(Math.max(current + direction, 0), Math.max(options.length - 1, 0))
+      );
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (isOpen) choose(activeIndex);
+      else open();
+    }
+  };
+
+  return (
+    <div
+      className={`my-select my-select--${placement}${inlineMenu ? ' my-select--inline-menu' : ''}${isOpen ? ' is-open' : ''}`}
+      ref={rootRef}
+    >
+      <button
+        aria-controls={listboxId}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        className={!selectedOption ? 'is-placeholder' : ''}
+        disabled={disabled}
+        role="combobox"
+        type="button"
+        onClick={() => (isOpen ? setIsOpen(false) : open())}
+        onKeyDown={handleKeyDown}
+      >
+        <span>{selectedOption?.label || placeholder}</span>
+        <span className="my-select__chevron" aria-hidden="true" />
+      </button>
+      {isOpen && (
+        <div className="my-select__menu" id={listboxId} role="listbox">
+          {options.map((option, index) => (
+            <button
+              aria-selected={option.value === value}
+              className={index === activeIndex ? 'is-active' : ''}
+              key={option.value}
+              role="option"
+              type="button"
+              onMouseEnter={() => setActiveIndex(index)}
+              onClick={() => choose(index)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function getFriendlyError(error: unknown, fallback: string) {
   const message = getRequestErrorMessage(error, fallback);
@@ -76,6 +234,49 @@ function formatTelemetryValue(value: unknown) {
   return String(value);
 }
 
+function getTelemetryLabel(key: string) {
+  return telemetryLabels[key] || normalizedTelemetryLabels[normalizeTelemetryKey(key)] || key;
+}
+
+function normalizeTelemetryKey(key: string) {
+  return key.replace(/[_\-\s]/g, '').toLowerCase();
+}
+
+function getTelemetryUnit(key: string) {
+  const normalizedKey = normalizeTelemetryKey(key);
+  if (normalizedKey === 'temperature') return '°C';
+  if (/humidity|moisture|position/i.test(normalizedKey)) return '%';
+  if (normalizedKey === 'speed') return '%';
+  return '';
+}
+
+function formatVisualValue(key: string, value: unknown) {
+  const normalizedKey = normalizeTelemetryKey(key);
+  if (/status|state|actuatoropen/.test(normalizedKey)) {
+    const normalized = String(value).trim().toLowerCase();
+    const stateLabels: Record<string, string> = {
+      true: 'Открыто',
+      false: 'Закрыто',
+      open: 'Открыто',
+      opened: 'Открыто',
+      opening: 'Открывается',
+      close: 'Закрыто',
+      closed: 'Закрыто',
+      closing: 'Закрывается',
+      stop: 'Остановлено',
+      stopped: 'Остановлено',
+    };
+    if (stateLabels[normalized]) return stateLabels[normalized];
+  }
+  const formatted = formatTelemetryValue(value);
+  const unit = getTelemetryUnit(key);
+  return unit && formatted !== 'Нет данных' ? `${formatted} ${unit}` : formatted;
+}
+
+function hasTelemetryValue(sample: TelemetrySample) {
+  return sample.value !== undefined && sample.value !== null && sample.value !== '';
+}
+
 function getLatestSample(samples: TelemetrySample[]) {
   return samples.reduce(
     (latest, sample) => (!latest || sample.ts > latest.ts ? sample : latest),
@@ -93,6 +294,38 @@ function getTelemetryRows(telemetry?: DeviceTelemetry) {
     })
     .filter((item): item is { key: string; sample: TelemetrySample } => Boolean(item))
     .sort((left, right) => right.sample.ts - left.sample.ts);
+}
+
+function getNumericTelemetrySummary(samples: TelemetrySample[]) {
+  const numericSamples = samples
+    .filter(
+      (sample) =>
+        typeof sample.value === 'number' ||
+        (typeof sample.value === 'string' && sample.value.trim() !== '')
+    )
+    .map((sample) => ({ ...sample, numericValue: Number(sample.value) }))
+    .filter((sample) => Number.isFinite(sample.numericValue))
+    .sort((left, right) => left.ts - right.ts);
+
+  if (!numericSamples.length) return null;
+
+  const values = numericSamples.map((sample) => sample.numericValue);
+  const latest = numericSamples[numericSamples.length - 1];
+  const previous = numericSamples[numericSamples.length - 2];
+  const trend = previous
+    ? latest.numericValue > previous.numericValue
+      ? 'up'
+      : latest.numericValue < previous.numericValue
+        ? 'down'
+        : 'steady'
+    : 'steady';
+
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values),
+    trend,
+    samples: numericSamples,
+  };
 }
 
 function getDeviceKind(device: Device): DeviceKind {
@@ -160,7 +393,7 @@ function Modal({
 function LoadingState() {
   return (
     <div className="my-loading" role="status" aria-live="polite">
-      <span className="manifest-spinner" aria-hidden="true" />
+      <span className="my-spinner" aria-hidden="true" />
       <div>
         <strong>Загружаем ваши теплицы</strong>
         <p>Получаем теплицы, устройства и последние данные телеметрии.</p>
@@ -208,8 +441,8 @@ function GreenhouseForm({
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Например, Южная теплица"
+          aria-invalid={Boolean(fieldErrors.name)}
         />
-        {fieldErrors.name && <small>{fieldErrors.name}</small>}
       </label>
       <label>
         <span>Расположение</span>
@@ -219,13 +452,47 @@ function GreenhouseForm({
           placeholder="Например, участок у дома"
         />
       </label>
-      {error && <p className="form-error">{error}</p>}
+      <div className="my-form__status" aria-live="polite">
+        {(fieldErrors.name || error) && <p className="form-error">{fieldErrors.name || error}</p>}
+      </div>
       <footer className="my-form__actions">
         <button type="submit" disabled={isSaving}>
           {isSaving ? 'Сохраняем...' : 'Сохранить'}
         </button>
       </footer>
     </form>
+  );
+}
+
+function DeleteGreenhouseConfirm({
+  greenhouse,
+  onConfirm,
+}: {
+  greenhouse: Greenhouse;
+  onConfirm: () => Promise<void>;
+}) {
+  const [error, setError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setError('');
+    try {
+      await onConfirm();
+    } catch (deleteError) {
+      setError(getFriendlyError(deleteError, 'Попробуйте позже: теплицу не удалось удалить.'));
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="my-confirm-dialog">
+      <p>Теплица «{greenhouse.name}» будет удалена без возможности восстановления.</p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button className="danger-action" type="button" disabled={isDeleting} onClick={handleDelete}>
+        {isDeleting ? 'Удаляем...' : 'Удалить теплицу'}
+      </button>
+    </div>
   );
 }
 
@@ -289,17 +556,17 @@ function DeviceCreateForm({
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Например, Термометр у входа"
+          aria-invalid={Boolean(fieldErrors.name)}
         />
-        {fieldErrors.name && <small>{fieldErrors.name}</small>}
       </label>
       <label className="my-form__field">
         <span>Номер устройства *</span>
         <input
           value={serialNumber}
           onChange={(event) => setSerialNumber(event.target.value)}
-          placeholder="Device ID из ThingsBoard или номер устройства"
+          placeholder="Номер с наклейки или паспорта устройства"
+          aria-invalid={Boolean(fieldErrors.serialNumber)}
         />
-        {fieldErrors.serialNumber && <small>{fieldErrors.serialNumber}</small>}
       </label>
       <fieldset className="my-type-options">
         <legend>Назначение устройства</legend>
@@ -314,22 +581,28 @@ function DeviceCreateForm({
           </button>
         ))}
       </fieldset>
-      <label className="my-form__field">
+      <div className="my-form__field">
         <span>Теплица</span>
-        <select
+        <Dropdown
           value={greenhouseId}
-          onChange={(event) => setGreenhouseId(event.target.value)}
+          onChange={setGreenhouseId}
           disabled={fixedGreenhouseId !== undefined}
-        >
-          <option value="">Не привязывать пока</option>
-          {greenhouses.map((greenhouse) => (
-            <option key={greenhouse.id} value={greenhouse.id}>
-              {greenhouse.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {error && <p className="form-error">{error}</p>}
+          placement="up"
+          placeholder="Не привязывать пока"
+          options={[
+            { value: '', label: 'Не привязывать пока' },
+            ...greenhouses.map((greenhouse) => ({
+              value: String(greenhouse.id),
+              label: greenhouse.name,
+            })),
+          ]}
+        />
+      </div>
+      <div className="my-form__status" aria-live="polite">
+        {(fieldErrors.name || fieldErrors.serialNumber || error) && (
+          <p className="form-error">{fieldErrors.name || fieldErrors.serialNumber || error}</p>
+        )}
+      </div>
       <footer className="my-form__actions">
         <button type="submit" disabled={isSaving}>
           {isSaving ? 'Добавляем...' : 'Добавить устройство'}
@@ -372,18 +645,21 @@ function AssignDeviceForm({
 
   return (
     <form className="my-form" onSubmit={handleSubmit}>
-      <label>
+      <div className="my-form__field">
         <span>Нераспределенное устройство</span>
-        <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>
-          <option value="">Выберите устройство</option>
-          {devices.map((device) => (
-            <option key={device.id} value={device.id}>
-              {device.name} · {device.serial_number}
-            </option>
-          ))}
-        </select>
-      </label>
-      {error && <p className="form-error">{error}</p>}
+        <Dropdown
+          value={deviceId}
+          onChange={setDeviceId}
+          placeholder="Выберите устройство"
+          options={devices.map((device) => ({
+            value: String(device.id),
+            label: `${device.name} · ${device.serial_number}`,
+          }))}
+        />
+      </div>
+      <div className="my-form__status" aria-live="polite">
+        {error && <p className="form-error">{error}</p>}
+      </div>
       <footer className="my-form__actions">
         <button type="submit" disabled={isSaving || !devices.length}>
           {isSaving ? 'Привязываем...' : 'Привязать'}
@@ -397,14 +673,20 @@ function UnassignedDeviceCard({
   device,
   greenhouses,
   onAssign,
+  onUpdate,
+  onDelete,
 }: {
   device: Device;
   greenhouses: Greenhouse[];
   onAssign: (deviceId: number, greenhouseId: number) => Promise<void>;
+  onUpdate: (device: Device, payload: DeviceUpdatePayload) => Promise<void>;
+  onDelete: (device: Device) => Promise<void>;
 }) {
   const [greenhouseId, setGreenhouseId] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const handleAssign = async () => {
     if (!greenhouseId) return;
@@ -425,21 +707,53 @@ function UnassignedDeviceCard({
         <strong>{device.name}</strong>
         <span>{device.serial_number}</span>
       </div>
-      <label>
+      <div className="my-unassigned-card__field">
         <span>Привязать к теплице</span>
-        <select value={greenhouseId} onChange={(event) => setGreenhouseId(event.target.value)}>
-          <option value="">Выберите теплицу</option>
-          {greenhouses.map((greenhouse) => (
-            <option key={greenhouse.id} value={greenhouse.id}>
-              {greenhouse.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button type="button" disabled={!greenhouseId || isSaving} onClick={handleAssign}>
-        {isSaving ? 'Привязываем...' : 'Привязать'}
-      </button>
+        <Dropdown
+          value={greenhouseId}
+          onChange={setGreenhouseId}
+          placeholder="Выберите теплицу"
+          options={greenhouses.map((greenhouse) => ({
+            value: String(greenhouse.id),
+            label: greenhouse.name,
+          }))}
+        />
+      </div>
+      <div className="my-unassigned-card__actions">
+        <button type="button" disabled={!greenhouseId || isSaving} onClick={handleAssign}>
+          {isSaving ? 'Привязываем...' : 'Привязать'}
+        </button>
+        <button className="secondary-action" type="button" onClick={() => setIsSettingsOpen(true)}>
+          Настроить
+        </button>
+      </div>
       {error && <p className="form-error">{error}</p>}
+      {isSettingsOpen && (
+        <Modal title="Настроить устройство" size="wide" onClose={() => setIsSettingsOpen(false)}>
+          <DeviceSettingsForm
+            device={device}
+            greenhouses={greenhouses}
+            onSave={async (currentDevice, payload) => {
+              await onUpdate(currentDevice, payload);
+              setIsSettingsOpen(false);
+            }}
+            onRequestDelete={() => setIsDeleteConfirmOpen(true)}
+          />
+        </Modal>
+      )}
+      {isDeleteConfirmOpen && (
+        <Modal title="Удалить устройство" size="compact" onClose={() => setIsDeleteConfirmOpen(false)}>
+          <DeleteDeviceConfirm
+            device={device}
+            onCancel={() => setIsDeleteConfirmOpen(false)}
+            onConfirm={async () => {
+              await onDelete(device);
+              setIsDeleteConfirmOpen(false);
+              setIsSettingsOpen(false);
+            }}
+          />
+        </Modal>
+      )}
     </article>
   );
 }
@@ -456,16 +770,426 @@ function GreenhouseCard({ greenhouse }: { greenhouse: Greenhouse }) {
   );
 }
 
+function formatNumericValue(value: number) {
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value);
+}
+
+function TelemetryHistory({ telemetry }: { telemetry: DeviceTelemetry }) {
+  const keys = useMemo(
+    () => Object.keys(telemetry.telemetry).filter((key) => telemetry.telemetry[key]?.length),
+    [telemetry]
+  );
+  const [selectedKey, setSelectedKey] = useState(keys[0] || '');
+
+  useEffect(() => {
+    if (!keys.includes(selectedKey)) setSelectedKey(keys[0] || '');
+  }, [keys, selectedKey]);
+
+  if (!keys.length) {
+    return <p className="my-inline-warning">История показаний пока отсутствует.</p>;
+  }
+
+  const samples = [...(telemetry.telemetry[selectedKey] || [])].sort(
+    (left, right) => left.ts - right.ts
+  );
+  const hasValues = samples.some(hasTelemetryValue);
+  const summary = getNumericTelemetrySummary(samples);
+  const unit = getTelemetryUnit(selectedKey);
+  const chartWidth = 720;
+  const chartHeight = 210;
+  const chartPadding = 22;
+  const numericValues = summary?.samples || [];
+  const valueRange = summary ? summary.max - summary.min || 1 : 1;
+  const points = numericValues
+    .map((sample, index) => {
+      const x =
+        numericValues.length === 1
+          ? chartWidth / 2
+          : chartPadding +
+            (index / (numericValues.length - 1)) * (chartWidth - chartPadding * 2);
+      const y =
+        chartHeight -
+        chartPadding -
+        ((sample.numericValue - (summary?.min || 0)) / valueRange) *
+          (chartHeight - chartPadding * 2);
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  return (
+    <div className="my-history">
+      <div className="my-history__toolbar">
+        <div className="my-form__field">
+          <span>Показатель</span>
+          <Dropdown
+            value={selectedKey}
+            onChange={setSelectedKey}
+            placeholder="Выберите показатель"
+            inlineMenu
+            options={keys.map((key) => ({ value: key, label: getTelemetryLabel(key) }))}
+          />
+        </div>
+        <span>Доступно значений: {samples.length}</span>
+      </div>
+
+      {summary ? (
+        <>
+          <div className="my-history__summary">
+            <div><span>Минимум</span><strong>{formatNumericValue(summary.min)} {unit}</strong></div>
+            <div><span>Максимум</span><strong>{formatNumericValue(summary.max)} {unit}</strong></div>
+            <div>
+              <span>Изменение</span>
+              <strong>
+                {summary.trend === 'up' ? 'Растет ↑' : summary.trend === 'down' ? 'Снижается ↓' : 'Без изменений'}
+              </strong>
+            </div>
+          </div>
+          <div className="my-history__chart" aria-label={`График: ${getTelemetryLabel(selectedKey)}`}>
+            <svg role="img" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+              <title>История показателя «{getTelemetryLabel(selectedKey)}»</title>
+              <line x1={chartPadding} y1={chartPadding} x2={chartPadding} y2={chartHeight - chartPadding} />
+              <line x1={chartPadding} y1={chartHeight - chartPadding} x2={chartWidth - chartPadding} y2={chartHeight - chartPadding} />
+              <polyline points={points} />
+            </svg>
+          </div>
+        </>
+      ) : hasValues ? (
+        <p className="my-inline-warning">Для текстовых значений доступна таблица без графика.</p>
+      ) : (
+        <p className="my-inline-warning">Для этого показателя пока нет полученных значений.</p>
+      )}
+
+      {hasValues && (
+        <div className="my-history__table-wrap">
+          <table className="my-history__table">
+            <thead><tr><th>Дата и время</th><th>Значение</th></tr></thead>
+            <tbody>
+              {[...samples].reverse().filter(hasTelemetryValue).map((sample, index) => (
+                <tr key={`${sample.ts}-${index}`}>
+                  <td>{formatDateTime(sample.ts)}</td>
+                  <td>{formatVisualValue(selectedKey, sample.value)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type TelemetryRow = {
+  key: string;
+  sample: TelemetrySample;
+};
+
+function DeviceScreen({ rows, compact = false }: { rows: TelemetryRow[]; compact?: boolean }) {
+  const visibleRows = [...rows].sort(
+    (left, right) => Number(hasTelemetryValue(right.sample)) - Number(hasTelemetryValue(left.sample))
+  );
+  return (
+    <div className={`my-device-render__screen${compact ? ' is-compact' : ''}${visibleRows.length > 4 ? ' is-dense' : ''}`}>
+      <div className="my-device-render__screen-header">
+        <span>LIVE</span>
+        <i aria-hidden="true" />
+      </div>
+      {visibleRows.length ? (
+        visibleRows.map(({ key, sample }) => (
+          <div className="my-device-render__screen-row" key={key}>
+            <span>{getTelemetryLabel(key)}</span>
+            <strong>{formatVisualValue(key, sample.value)}</strong>
+          </div>
+        ))
+      ) : (
+        <div className="my-device-render__screen-empty">НЕТ ДАННЫХ</div>
+      )}
+    </div>
+  );
+}
+
+function DeviceControls({
+  pendingCommand,
+  onCommand,
+}: {
+  pendingCommand: string;
+  onCommand: (command: DeviceCommand) => void;
+}) {
+  return (
+    <div className="my-device-render__controls" aria-label="Управление устройством">
+      <button
+        aria-label="Открыть"
+        disabled={Boolean(pendingCommand)}
+        title="Открыть"
+        type="button"
+        onClick={() => onCommand('open')}
+      >
+        <span aria-hidden="true">↑</span>
+      </button>
+      <button
+        aria-label="Стоп"
+        disabled={Boolean(pendingCommand)}
+        title="Стоп"
+        type="button"
+        onClick={() => onCommand('stop')}
+      >
+        <span aria-hidden="true">■</span>
+      </button>
+      <button
+        aria-label="Закрыть"
+        disabled={Boolean(pendingCommand)}
+        title="Закрыть"
+        type="button"
+        onClick={() => onCommand('close')}
+      >
+        <span aria-hidden="true">↓</span>
+      </button>
+    </div>
+  );
+}
+
+function DeviceIllustration({
+  kind,
+  rows,
+  pendingCommand,
+  onCommand,
+}: {
+  kind: DeviceKind;
+  rows: TelemetryRow[];
+  pendingCommand: string;
+  onCommand: (command: DeviceCommand) => void;
+}) {
+  const canControl = kind === 'actuator' || kind === 'valve';
+  return (
+    <div className={`my-device-render my-device-render--other${canControl ? ' has-controls' : ''}`}>
+      <div className="my-device-render__antenna" />
+      <div className="my-device-render__rugged-case">
+        <div className="my-device-render__identity">
+          <span className="my-device-render__model">Умная теплица</span>
+          <span className="my-device-render__type">{deviceKindLabels[kind]}</span>
+        </div>
+        <DeviceScreen rows={rows} />
+        {canControl && <DeviceControls pendingCommand={pendingCommand} onCommand={onCommand} />}
+        <div className="my-device-render__connectors"><i /><i /><i /></div>
+      </div>
+    </div>
+  );
+}
+
+function DeviceVisual({
+  device,
+  kind,
+  rows,
+  telemetry,
+  pendingCommand,
+  feedback,
+  error,
+  onCommand,
+  onDismissError,
+}: {
+  device: Device;
+  kind: DeviceKind;
+  rows: TelemetryRow[];
+  telemetry?: DeviceTelemetry;
+  pendingCommand: string;
+  feedback: string;
+  error: string;
+  onCommand: (command: DeviceCommand) => void;
+  onDismissError: () => void;
+}) {
+  return (
+    <div className="my-device-visual-modal">
+      <div className="my-device-visual-stage">
+        <DeviceIllustration
+          kind={kind}
+          rows={rows}
+          pendingCommand={pendingCommand}
+          onCommand={onCommand}
+        />
+      </div>
+      <div className="my-device-visual-details">
+        <div>
+          <span>{deviceKindLabels[kind]}</span>
+          <h3>{device.name}</h3>
+          <p>Номер устройства: {device.serial_number}</p>
+          <time>{telemetry ? `Получено: ${formatDateTime(telemetry.retrieved_at)}` : 'Данные ещё не получены'}</time>
+        </div>
+        {rows.length ? (
+          <dl>
+            {rows.map(({ key, sample }) => (
+              <div key={key}>
+                <dt>{getTelemetryLabel(key)}</dt>
+                <dd>{formatVisualValue(key, sample.value)}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="my-inline-warning">Показаний для визуального представления пока нет.</p>
+        )}
+      </div>
+      {feedback && <p className="form-success my-device-visual-feedback">{feedback}</p>}
+      {error && (
+        <div className="my-device-visual-toast" role="alert">
+          <span>{error}</span>
+          <button aria-label="Закрыть сообщение" title="Закрыть" type="button" onClick={onDismissError}>
+            ×
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeviceSettingsForm({
+  device,
+  greenhouses,
+  onSave,
+  onRequestDelete,
+}: {
+  device: Device;
+  greenhouses: Greenhouse[];
+  onSave: (device: Device, payload: DeviceUpdatePayload) => Promise<void>;
+  onRequestDelete: () => void;
+}) {
+  const [name, setName] = useState(device.name);
+  const [kind, setKind] = useState<DeviceKind>(getDeviceKind(device));
+  const [greenhouseId, setGreenhouseId] = useState(
+    device.greenhouse_id ? String(device.greenhouse_id) : ''
+  );
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!name.trim()) {
+      setError('Заполните название устройства для сохранения.');
+      return;
+    }
+    setIsSaving(true);
+    setError('');
+    try {
+      await onSave(device, {
+        name: name.trim(),
+        kind,
+        ...(greenhouseId ? { greenhouseId: Number(greenhouseId) } : {}),
+      });
+    } catch (submitError) {
+      setError(getFriendlyError(submitError, 'Попробуйте позже: устройство не удалось сохранить.'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form className="my-form my-device-settings" noValidate onSubmit={handleSubmit}>
+      <label>
+        <span>Название устройства *</span>
+        <input value={name} onChange={(event) => setName(event.target.value)} />
+      </label>
+      <div className="my-form__field">
+        <span>Теплица</span>
+        <Dropdown
+          value={greenhouseId}
+          onChange={setGreenhouseId}
+          placeholder="Не распределено"
+          options={[
+            ...(device.greenhouse_id == null ? [{ value: '', label: 'Не распределено' }] : []),
+            ...greenhouses.map((greenhouse) => ({
+              value: String(greenhouse.id),
+              label: greenhouse.name,
+            })),
+          ]}
+        />
+        <small>
+          {device.greenhouse_id == null
+            ? 'Можно оставить устройство нераспределенным или выбрать теплицу.'
+            : 'Устройство можно переместить в другую теплицу.'}
+        </small>
+      </div>
+      <fieldset className="my-type-options">
+        <legend>Тип устройства</legend>
+        {Object.entries(deviceKindLabels).map(([value, label]) => (
+          <button
+            key={value}
+            className={kind === value ? 'active' : ''}
+            type="button"
+            onClick={() => setKind(value as DeviceKind)}
+          >
+            {label}
+          </button>
+        ))}
+      </fieldset>
+      <p className="my-device-settings__serial">Номер устройства: {device.serial_number}</p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <footer className="my-form__actions my-device-settings__actions">
+        <button type="submit" disabled={isSaving}>
+          {isSaving ? 'Сохраняем...' : 'Сохранить'}
+        </button>
+        <button className="danger-action" type="button" disabled={isSaving} onClick={onRequestDelete}>
+          Удалить устройство
+        </button>
+      </footer>
+    </form>
+  );
+}
+
+function DeleteDeviceConfirm({
+  device,
+  onConfirm,
+  onCancel,
+}: {
+  device: Device;
+  onConfirm: () => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [error, setError] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setError('');
+    try {
+      await onConfirm();
+    } catch (deleteError) {
+      setError(getFriendlyError(deleteError, 'Попробуйте позже: устройство не удалось удалить.'));
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="my-confirm-dialog">
+      <p>Удалить устройство «{device.name}»?</p>
+      <p className="my-confirm-dialog__note">
+        Позже вы сможете снова добавить его, указав номер с наклейки или паспорта устройства.
+      </p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="my-confirm-dialog__actions">
+        <button className="danger-action" type="button" disabled={isDeleting} onClick={handleDelete}>
+          {isDeleting ? 'Удаляем...' : 'Подтвердить удаление'}
+        </button>
+        <button className="secondary-action" type="button" disabled={isDeleting} onClick={onCancel}>
+          Отмена
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DeviceTelemetryPanel({
   device,
   telemetry,
   telemetryError,
   onCommand,
+  greenhouses,
+  onUpdate,
+  onDelete,
 }: {
   device: Device;
   telemetry?: DeviceTelemetry;
   telemetryError?: string;
-  onCommand: (device: Device, command: 'open' | 'close' | 'stop') => Promise<void>;
+  onCommand: (device: Device, command: DeviceCommand) => Promise<void>;
+  greenhouses: Greenhouse[];
+  onUpdate: (device: Device, payload: DeviceUpdatePayload) => Promise<void>;
+  onDelete: (device: Device) => Promise<void>;
 }) {
   const rows = getTelemetryRows(telemetry);
   const kind = getDeviceKind(device);
@@ -473,8 +1197,12 @@ function DeviceTelemetryPanel({
   const [pendingCommand, setPendingCommand] = useState('');
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
+  const [isVisualOpen, setIsVisualOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
-  const handleCommand = async (command: 'open' | 'close' | 'stop') => {
+  const handleCommand = async (command: DeviceCommand) => {
     setPendingCommand(command);
     setFeedback('');
     setError('');
@@ -496,7 +1224,20 @@ function DeviceTelemetryPanel({
           <h3>{device.name}</h3>
           <p>{device.serial_number}</p>
         </div>
-        <time>{telemetry ? `Получено: ${formatDateTime(telemetry.retrieved_at)}` : 'нет данных'}</time>
+        <div className="my-device-card__header-actions">
+          <time>{telemetry ? `Получено: ${formatDateTime(telemetry.retrieved_at)}` : 'нет данных'}</time>
+          <div>
+            <button className="secondary-action" type="button" onClick={() => setIsVisualOpen(true)}>
+              Визуальное представление
+            </button>
+            <button className="secondary-action" type="button" disabled={!telemetry || !rows.length} onClick={() => setIsHistoryOpen(true)}>
+              История показаний
+            </button>
+            <button className="secondary-action" type="button" onClick={() => setIsSettingsOpen(true)}>
+              Настроить
+            </button>
+          </div>
+        </div>
       </header>
 
       {telemetryError ? (
@@ -505,8 +1246,19 @@ function DeviceTelemetryPanel({
         <dl className="my-telemetry-grid">
           {rows.map(({ key, sample }) => (
             <div key={key}>
-              <dt>{key}</dt>
-              <dd>{formatTelemetryValue(sample.value)}</dd>
+              <dt>{getTelemetryLabel(key)}</dt>
+              <dd>{formatVisualValue(key, sample.value)}</dd>
+              {(() => {
+                const summary = getNumericTelemetrySummary(telemetry?.telemetry[key] || []);
+                if (!summary) return null;
+                const unit = getTelemetryUnit(key);
+                return (
+                  <span className="my-telemetry-grid__summary">
+                    {summary.trend === 'up' ? 'Растет ↑' : summary.trend === 'down' ? 'Снижается ↓' : 'Без изменений'}
+                    {' · '}{formatNumericValue(summary.min)}–{formatNumericValue(summary.max)} {unit}
+                  </span>
+                );
+              })()}
               <small>{formatDateTime(sample.ts)}</small>
             </div>
           ))}
@@ -542,8 +1294,54 @@ function DeviceTelemetryPanel({
           </button>
         </div>
       )}
-      {feedback && <p className="form-success">{feedback}</p>}
-      {error && <p className="form-error">{error}</p>}
+      {feedback && !isVisualOpen && <p className="form-success">{feedback}</p>}
+      {error && !isVisualOpen && <p className="form-error">{error}</p>}
+      {isVisualOpen && (
+        <Modal title="Визуальное представление" size="wide" onClose={() => setIsVisualOpen(false)}>
+          <DeviceVisual
+            device={device}
+            kind={kind}
+            rows={rows}
+            telemetry={telemetry}
+            pendingCommand={pendingCommand}
+            feedback={feedback}
+            error={error}
+            onCommand={handleCommand}
+            onDismissError={() => setError('')}
+          />
+        </Modal>
+      )}
+      {isHistoryOpen && telemetry && (
+        <Modal title={`История: ${device.name}`} size="wide" onClose={() => setIsHistoryOpen(false)}>
+          <TelemetryHistory telemetry={telemetry} />
+        </Modal>
+      )}
+      {isSettingsOpen && (
+        <Modal title="Настроить устройство" size="wide" onClose={() => setIsSettingsOpen(false)}>
+          <DeviceSettingsForm
+            device={device}
+            greenhouses={greenhouses}
+            onSave={async (currentDevice, payload) => {
+              await onUpdate(currentDevice, payload);
+              setIsSettingsOpen(false);
+            }}
+            onRequestDelete={() => setIsDeleteConfirmOpen(true)}
+          />
+        </Modal>
+      )}
+      {isDeleteConfirmOpen && (
+        <Modal title="Удалить устройство" size="compact" onClose={() => setIsDeleteConfirmOpen(false)}>
+          <DeleteDeviceConfirm
+            device={device}
+            onCancel={() => setIsDeleteConfirmOpen(false)}
+            onConfirm={async () => {
+              await onDelete(device);
+              setIsDeleteConfirmOpen(false);
+              setIsSettingsOpen(false);
+            }}
+          />
+        </Modal>
+      )}
     </article>
   );
 }
@@ -707,7 +1505,61 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
     closeModal();
   };
 
-  const sendCommand = async (device: Device, command: 'open' | 'close' | 'stop') => {
+  const updateDevice = async (device: Device, payload: DeviceUpdatePayload) => {
+    const currentMetadata = device.metadata || device.device_metadata || {};
+    const preservedMetadata = Object.fromEntries(
+      Object.entries(currentMetadata).filter(
+        ([key]) => !['device_type', 'sensor_type', 'actuator_type'].includes(key)
+      )
+    );
+    const updated = await requestJson<Device>(`/api/devices/${device.id}`, {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: payload.name,
+        metadata: { ...preservedMetadata, ...buildDeviceMetadata(payload.kind) },
+        ...(payload.greenhouseId ? { greenhouse_id: payload.greenhouseId } : {}),
+      }),
+      fallbackError: 'Попробуйте позже: устройство не удалось сохранить.',
+      onAuthExpired,
+    });
+    setDevices((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+  };
+
+  const deleteDevice = async (device: Device) => {
+    await requestVoid(`/api/devices/${device.id}`, {
+      method: 'DELETE',
+      headers,
+      fallbackError: 'Попробуйте позже: устройство не удалось удалить.',
+      onAuthExpired,
+    });
+    setDevices((current) => current.filter((item) => item.id !== device.id));
+    setTelemetry((current) => {
+      const next = { ...current };
+      delete next[device.id];
+      return next;
+    });
+    setTelemetryErrors((current) => {
+      const next = { ...current };
+      delete next[device.id];
+      return next;
+    });
+  };
+
+  const deleteGreenhouse = async () => {
+    if (!selectedGreenhouse || greenhouseDevices.length) return;
+    await requestVoid(`/api/greenhouses/${selectedGreenhouse.id}`, {
+      method: 'DELETE',
+      headers,
+      fallbackError: 'Попробуйте позже: теплицу не удалось удалить.',
+      onAuthExpired,
+    });
+    setGreenhouses((current) => current.filter((item) => item.id !== selectedGreenhouse.id));
+    closeModal();
+    window.location.hash = '#/my-greenhouses';
+  };
+
+  const sendCommand = async (device: Device, command: DeviceCommand) => {
     await requestJson<{ message: string }>(`/api/rpc/${device.id}`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
@@ -763,6 +1615,11 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
             <button className="secondary-action" type="button" onClick={() => setModal('greenhouse-edit')}>
               Редактировать
             </button>
+            {!greenhouseDevices.length && (
+              <button className="danger-action" type="button" onClick={() => setModal('greenhouse-delete')}>
+                Удалить теплицу
+              </button>
+            )}
             <button type="button" onClick={() => setModal('device-add-menu')}>
               Добавить устройство
             </button>
@@ -784,19 +1641,18 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
         {greenhouseDevices.length ? (
           <>
             <div className="my-device-filter">
-              <label>
+              <div className="my-device-filter__field">
                 <span>Показать устройства</span>
-                <select
+                <Dropdown
                   value={deviceKindFilter}
-                  onChange={(event) => setDeviceKindFilter(event.target.value as DeviceKindFilter)}
-                >
-                  {Object.entries(deviceKindFilterLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  onChange={(value) => setDeviceKindFilter(value as DeviceKindFilter)}
+                  placeholder="Все"
+                  options={Object.entries(deviceKindFilterLabels).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                />
+              </div>
             </div>
             <div className="my-device-list">
               {filteredGreenhouseDevices.length ? (
@@ -807,6 +1663,9 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
                     telemetry={telemetry[device.id]}
                     telemetryError={telemetryErrors[device.id]}
                     onCommand={sendCommand}
+                    greenhouses={greenhouses}
+                    onUpdate={updateDevice}
+                    onDelete={deleteDevice}
                   />
                 ))
               ) : (
@@ -826,6 +1685,12 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
         {modal === 'greenhouse-edit' && (
           <Modal title="Редактировать теплицу" size="compact" onClose={closeModal}>
             <GreenhouseForm greenhouse={selectedGreenhouse} onSubmit={updateGreenhouse} />
+          </Modal>
+        )}
+
+        {modal === 'greenhouse-delete' && (
+          <Modal title="Удалить теплицу" size="compact" onClose={closeModal}>
+            <DeleteGreenhouseConfirm greenhouse={selectedGreenhouse} onConfirm={deleteGreenhouse} />
           </Modal>
         )}
 
@@ -908,6 +1773,8 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
                   device={device}
                   greenhouses={greenhouses}
                   onAssign={assignDevice}
+                  onUpdate={updateDevice}
+                  onDelete={deleteDevice}
                 />
               ))}
             </div>

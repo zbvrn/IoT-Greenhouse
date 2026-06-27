@@ -3,13 +3,6 @@ export type AppRoute =
   | 'register'
   | 'my-greenhouses'
   | 'my-greenhouse'
-  | 'greenhouses'
-  | 'greenhouse'
-  | 'greenhouses-new'
-  | 'greenhouse-new'
-  | 'greenhouses-render'
-  | 'greenhouse-render'
-  | 'test'
   | 'notifications'
   | 'profile';
 
@@ -51,17 +44,6 @@ export type Device = {
   device_metadata?: Record<string, unknown> | null;
   greenhouse_id?: number | null;
   user_id: number;
-};
-
-export type AutomationSetting = {
-  id: number;
-  greenhouse_id: number;
-  auto_mode: boolean;
-  target_temperature: number;
-  hysteresis: number;
-  last_action?: string | null;
-  last_action_at?: string | null;
-  updated_at: string;
 };
 
 export type TelemetrySample = {

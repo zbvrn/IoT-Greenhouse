@@ -1,10 +1,6 @@
 import { navItems, routeTitles } from '../constants/routes';
-import GreenhousesPage from '../pages/greenhouses/GreenhousesPage';
-import ManifestGreenhousesPage from '../pages/manifest-greenhouses/ManifestGreenhousesPage';
 import MyGreenhousesPage from '../pages/my-greenhouses/MyGreenhousesPage';
-import RenderedGreenhousesPage from '../pages/rendered-greenhouses/RenderedGreenhousesPage';
 import ProfilePage from '../pages/ProfilePage';
-import TestPage from '../pages/TestPage';
 import type { RouteState, User } from '../types';
 
 type AppLayoutProps = {
@@ -26,21 +22,17 @@ function AppLayout({
   onAuthExpired,
   onLogout,
 }: AppLayoutProps) {
-  const isGreenhousesRoute =
-    routeState.route === 'greenhouses' || routeState.route === 'greenhouse';
   const isMyGreenhousesRoute =
     routeState.route === 'my-greenhouses' || routeState.route === 'my-greenhouse';
-  const isManifestGreenhousesRoute =
-    routeState.route === 'greenhouses-new' || routeState.route === 'greenhouse-new';
-  const isRenderedGreenhousesRoute =
-    routeState.route === 'greenhouses-render' || routeState.route === 'greenhouse-render';
 
   return (
     <div className="app-shell">
       <aside className="sidebar" aria-label="Основная навигация">
         <div>
           <div className="brand">
-            <span className="brand-mark" aria-hidden="true" />
+            <span className="brand-mark" aria-hidden="true">
+              <img src="/logo.png" alt="" />
+            </span>
             <div>
               <span className="brand-name">Умная теплица</span>
             </div>
@@ -51,14 +43,8 @@ function AppLayout({
               <a
                 key={item.path}
                 className={
-                  item.route === 'greenhouses' && isGreenhousesRoute
+                  item.route === 'my-greenhouses' && isMyGreenhousesRoute
                     ? 'active'
-                    : item.route === 'my-greenhouses' && isMyGreenhousesRoute
-                      ? 'active'
-                    : item.route === 'greenhouses-new' && isManifestGreenhousesRoute
-                      ? 'active'
-                    : item.route === 'greenhouses-render' && isRenderedGreenhousesRoute
-                      ? 'active'
                     : item.route === routeState.route
                       ? 'active'
                       : ''
@@ -97,26 +83,6 @@ function AppLayout({
             routeState={routeState}
             onAuthExpired={onAuthExpired}
           />
-        ) : isGreenhousesRoute ? (
-          <GreenhousesPage
-            token={token}
-            routeState={routeState}
-            onAuthExpired={onAuthExpired}
-          />
-        ) : isManifestGreenhousesRoute ? (
-          <ManifestGreenhousesPage
-            token={token}
-            routeState={routeState}
-            onAuthExpired={onAuthExpired}
-          />
-        ) : isRenderedGreenhousesRoute ? (
-          <RenderedGreenhousesPage
-            token={token}
-            routeState={routeState}
-            onAuthExpired={onAuthExpired}
-          />
-        ) : routeState.route === 'test' ? (
-          <TestPage />
         ) : (
           <>
             <h1>{routeTitles[routeState.route]}</h1>
