@@ -32,6 +32,44 @@ test('renders registration screen', () => {
   expect(screen.getByRole('link', { name: 'Войти' })).toBeInTheDocument();
 });
 
+test('signs the user in immediately after registration', async () => {
+  window.location.hash = '#/register';
+  jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    const url = getRequestUrl(input);
+    if (url.endsWith('/api/auth/register')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ id: 7, email: 'new@mail.com', full_name: 'Новый пользователь' }),
+      } as Response);
+    }
+    if (url.endsWith('/api/auth/login')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          access_token: 'new-token',
+          token_type: 'bearer',
+          user: { id: 7, email: 'new@mail.com', full_name: 'Новый пользователь' },
+        }),
+      } as Response);
+    }
+    if (url.endsWith('/api/greenhouses/') || url.endsWith('/api/devices/')) {
+      return Promise.resolve({ ok: true, json: async () => [] } as Response);
+    }
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+
+  render(<App />);
+  fireEvent.change(screen.getByLabelText('Имя'), { target: { value: 'Новый пользователь' } });
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'new@mail.com' } });
+  fireEvent.change(screen.getByLabelText('Пароль'), { target: { value: 'secret12' } });
+  fireEvent.change(screen.getByLabelText('Повтор пароля'), { target: { value: 'secret12' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Зарегистрироваться' }));
+
+  await screen.findByRole('heading', { name: 'Мои теплицы' });
+  expect(localStorage.getItem('access_token')).toBe('new-token');
+  expect(window.location.hash).toBe('#/my-greenhouses');
+});
+
 test('renders only the current application sections for an authenticated user', async () => {
   localStorage.setItem('access_token', 'demo-token');
   localStorage.setItem(
@@ -77,6 +115,53 @@ test('renders only the current application sections for an authenticated user', 
   expect(screen.getByRole('link', { name: 'Профиль' })).toBeInTheDocument();
   expect(within(screen.getByRole('navigation')).getAllByRole('link')).toHaveLength(3);
   expect(screen.getByText('Иван Петров')).toBeInTheDocument();
+});
+
+test('resets the device type filter when another greenhouse is opened', async () => {
+  localStorage.setItem('access_token', 'demo-token');
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'user@mail.com' }));
+  window.location.hash = '#/my-greenhouses/1';
+
+  jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    const url = getRequestUrl(input);
+    if (url.endsWith('/api/greenhouses/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          { id: 1, name: 'Первая теплица', location: null, is_active: true, metadata: null, created_at: '2026-06-01T10:00:00Z', updated_at: '2026-06-01T10:00:00Z', user_id: 1 },
+          { id: 2, name: 'Вторая теплица', location: null, is_active: true, metadata: null, created_at: '2026-06-01T10:00:00Z', updated_at: '2026-06-01T10:00:00Z', user_id: 1 },
+        ],
+      } as Response);
+    }
+    if (url.endsWith('/api/devices/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          { id: 1, name: 'Контроллер', serial_number: 'DEV-1', is_active: true, last_seen: null, metadata: { device_type: 'other' }, greenhouse_id: 1, user_id: 1 },
+          { id: 2, name: 'Термометр', serial_number: 'DEV-2', is_active: true, last_seen: null, metadata: { device_type: 'sensor' }, greenhouse_id: 2, user_id: 1 },
+        ],
+      } as Response);
+    }
+    if (url.includes('/api/telemetry/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ device_id: 1, serial_number: 'DEV', retrieved_at: '2026-06-28T10:00:00Z', telemetry: {} }),
+      } as Response);
+    }
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+
+  render(<App />);
+  await screen.findByRole('heading', { name: 'Первая теплица' });
+  fireEvent.click(screen.getByRole('combobox'));
+  fireEvent.click(screen.getByRole('option', { name: 'Другое устройство' }));
+  expect(screen.getByRole('combobox')).toHaveTextContent('Другое устройство');
+
+  window.location.hash = '#/my-greenhouses/2';
+  fireEvent(window, new HashChangeEvent('hashchange'));
+
+  await screen.findByRole('heading', { name: 'Вторая теплица' });
+  await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Все'));
 });
 
 test('opens a live visual representation for a greenhouse device', async () => {
@@ -185,6 +270,13 @@ test('opens a live visual representation for a greenhouse device', async () => {
   render(<App />);
 
   const historyButton = await screen.findByRole('button', { name: 'История показаний' });
+  expect(screen.getByRole('heading', { name: 'Автоматизация температуры' })).toBeInTheDocument();
+  expect(screen.getByRole('switch', { name: 'Автоматический режим' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Сохранить настройки' })).toBeDisabled();
+  const metricLabels = Array.from(document.querySelectorAll('.my-telemetry-grid dt')).map(
+    (element) => element.textContent
+  );
+  expect(metricLabels.slice(0, 2)).toEqual(['Положение форточки', 'Состояние привода']);
   fireEvent.click(historyButton);
   const historyDialog = screen.getByRole('dialog');
   fireEvent.click(within(historyDialog).getByRole('combobox'));
@@ -234,6 +326,7 @@ test('opens a live visual representation for a greenhouse device', async () => {
 
   fireEvent.click(screen.getByRole('button', { name: 'Настроить' }));
   const settingsDialog = screen.getByRole('dialog');
+  expect(within(settingsDialog).getByText('Выберите назначение, указанное в паспорте или на самом устройстве.')).toBeInTheDocument();
   const nameInput = within(settingsDialog).getByLabelText('Название устройства *');
   fireEvent.change(nameInput, { target: { value: 'Привод у входа' } });
   fireEvent.click(within(settingsDialog).getByRole('button', { name: 'Сохранить' }));
@@ -324,15 +417,142 @@ test('renders profile page with account controls', async () => {
   expect(screen.getByRole('button', { name: 'Выйти из аккаунта' })).toBeInTheDocument();
 });
 
-test('renders notifications placeholder', () => {
+test('renders and deletes the welcome notification after registration', async () => {
   localStorage.setItem('access_token', 'demo-token');
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'user@mail.com' }));
+  localStorage.setItem('greenhouse-welcome-pending:v2:1', 'true');
   window.location.hash = '#/notifications';
+
+  jest.spyOn(global, 'fetch').mockResolvedValue({
+    ok: true,
+    json: async () => [],
+  } as Response);
 
   render(<App />);
 
   expect(screen.getByRole('heading', { name: 'Уведомления' })).toBeInTheDocument();
-  expect(screen.getByText('Раздел находится в разработке.')).toBeInTheDocument();
+  await screen.findByRole('heading', { name: 'Добро пожаловать в «Умную теплицу»' });
+  expect(
+    screen.getByRole('link', { name: 'Перейти в «Мои теплицы»' })
+  ).toHaveAttribute('href', '#/my-greenhouses');
+  expect(document.querySelector('.side-nav__notification-dot')).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Удалить' }));
+  expect(screen.getByText('Уведомлений пока нет.')).toBeInTheDocument();
+});
+
+test('creates one notification when the latest telemetry timestamp changes', async () => {
+  localStorage.setItem('access_token', 'demo-token');
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'user@mail.com' }));
+  localStorage.setItem('greenhouse-welcome-shown:v2:1', 'true');
+  localStorage.setItem('greenhouse-telemetry-timestamps:v1:1', JSON.stringify({ 12: 1000 }));
+  window.location.hash = '#/my-greenhouses';
+
+  jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    const url = getRequestUrl(input);
+    if (url.endsWith('/api/greenhouses/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [{ id: 4, name: 'Южная теплица' }],
+      } as Response);
+    }
+    if (url.endsWith('/api/devices/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [{ id: 12, name: 'Термометр', greenhouse_id: 4 }],
+      } as Response);
+    }
+    if (url.endsWith('/api/telemetry/12')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ telemetry: { temperature: [{ ts: 2000, value: '24' }] } }),
+      } as Response);
+    }
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+
+  render(<App />);
+
+  await waitFor(() => {
+    expect(document.querySelector('.side-nav__notification-dot')).toBeInTheDocument();
+  });
+  const stored = JSON.parse(
+    localStorage.getItem('greenhouse-notifications:v1:1') || '[]'
+  );
+  expect(stored).toHaveLength(1);
+  expect(stored[0]).toMatchObject({
+    title: 'Новые данные: Термометр',
+    targetHash: '#/my-greenhouses/4',
+    read: false,
+  });
+});
+
+test('does not notify when only an empty telemetry sample has a newer timestamp', async () => {
+  localStorage.setItem('access_token', 'demo-token');
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'user@mail.com' }));
+  localStorage.setItem('greenhouse-welcome-shown:v2:1', 'true');
+  localStorage.setItem('greenhouse-telemetry-timestamps:v1:1', JSON.stringify({ 12: 2000 }));
+  window.location.hash = '#/my-greenhouses';
+
+  jest.spyOn(global, 'fetch').mockImplementation((input) => {
+    const url = getRequestUrl(input);
+    if (url.endsWith('/api/greenhouses/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [{ id: 4, name: 'Южная теплица' }],
+      } as Response);
+    }
+    if (url.endsWith('/api/devices/')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => [{ id: 12, name: 'Термометр', greenhouse_id: 4 }],
+      } as Response);
+    }
+    if (url.endsWith('/api/telemetry/12')) {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          telemetry: {
+            temperature: [{ ts: 2000, value: '24' }],
+            humidity: [{ ts: 3000, value: null }],
+          },
+        }),
+      } as Response);
+    }
+    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+  });
+
+  render(<App />);
+
+  await waitFor(() => {
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/telemetry/12',
+      expect.any(Object)
+    );
+  });
+  expect(document.querySelector('.side-nav__notification-dot')).not.toBeInTheDocument();
+  expect(
+    JSON.parse(localStorage.getItem('greenhouse-notifications:v1:1') || '[]')
+  ).toHaveLength(0);
+});
+
+test('removes the legacy welcome notification from an existing account', async () => {
+  localStorage.setItem('access_token', 'demo-token');
+  localStorage.setItem('user', JSON.stringify({ id: 1, email: 'user@mail.com' }));
+  localStorage.setItem(
+    'greenhouse-notifications:v1:1',
+    JSON.stringify([{ id: 'welcome-v1', type: 'welcome', read: false }])
+  );
+  window.location.hash = '#/notifications';
+  jest.spyOn(global, 'fetch').mockResolvedValue({
+    ok: true,
+    json: async () => [],
+  } as Response);
+
+  render(<App />);
+
+  await screen.findByText('Уведомлений пока нет.');
+  expect(document.querySelector('.side-nav__notification-dot')).not.toBeInTheDocument();
 });
 
 test('redirects to login when stored token is invalid', async () => {

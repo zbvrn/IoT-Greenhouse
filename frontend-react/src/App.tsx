@@ -47,15 +47,16 @@ function App() {
     window.location.hash = '#/my-greenhouses';
   };
 
+  const handleRegister = (nextToken: string, nextUser: User) => {
+    const userKey = String(nextUser.id || nextUser.email);
+    localStorage.setItem(`greenhouse-welcome-pending:v2:${userKey}`, 'true');
+    handleLogin(nextToken, nextUser);
+  };
+
   const handleUserUpdate = useCallback((nextUser: User) => {
     localStorage.setItem('user', JSON.stringify(nextUser));
     setUser(nextUser);
   }, []);
-
-  const handleRegister = () => {
-    setAuthNotice({ text: 'Регистрация успешна. Теперь можно войти.', type: 'success' });
-    window.location.hash = '#/login';
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');

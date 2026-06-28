@@ -77,6 +77,21 @@ const normalizedTelemetryLabels: Record<string, string> = {
   speed: 'Скорость',
 };
 
+const telemetryDisplayOrder = [
+  'temperature',
+  'humidity',
+  'soilhumidity',
+  'soilmoisture',
+  'moisture',
+  'windowposition',
+  'position',
+  'actuatoropen',
+  'actuatoropenstate',
+  'status',
+  'state',
+  'speed',
+];
+
 function Dropdown({
   value,
   options,
@@ -293,7 +308,22 @@ function getTelemetryRows(telemetry?: DeviceTelemetry) {
       return latest ? { key, sample: latest } : null;
     })
     .filter((item): item is { key: string; sample: TelemetrySample } => Boolean(item))
-    .sort((left, right) => right.sample.ts - left.sample.ts);
+    .sort((left, right) => {
+      const valuePriority =
+        Number(hasTelemetryValue(right.sample)) - Number(hasTelemetryValue(left.sample));
+      if (valuePriority) return valuePriority;
+
+      const leftKey = normalizeTelemetryKey(left.key);
+      const rightKey = normalizeTelemetryKey(right.key);
+      const leftIndex = telemetryDisplayOrder.indexOf(leftKey);
+      const rightIndex = telemetryDisplayOrder.indexOf(rightKey);
+      const orderPriority =
+        (leftIndex === -1 ? telemetryDisplayOrder.length : leftIndex) -
+        (rightIndex === -1 ? telemetryDisplayOrder.length : rightIndex);
+      if (orderPriority) return orderPriority;
+
+      return getTelemetryLabel(left.key).localeCompare(getTelemetryLabel(right.key), 'ru');
+    });
 }
 
 function getNumericTelemetrySummary(samples: TelemetrySample[]) {
@@ -570,6 +600,9 @@ function DeviceCreateForm({
       </label>
       <fieldset className="my-type-options">
         <legend>Назначение устройства</legend>
+        <small className="my-type-options__hint">
+          Выберите назначение, указанное в паспорте или на самом устройстве.
+        </small>
         {Object.entries(deviceKindLabels).map(([value, label]) => (
           <button
             key={value}
@@ -581,23 +614,24 @@ function DeviceCreateForm({
           </button>
         ))}
       </fieldset>
-      <div className="my-form__field">
-        <span>Теплица</span>
-        <Dropdown
-          value={greenhouseId}
-          onChange={setGreenhouseId}
-          disabled={fixedGreenhouseId !== undefined}
-          placement="up"
-          placeholder="Не привязывать пока"
-          options={[
-            { value: '', label: 'Не привязывать пока' },
-            ...greenhouses.map((greenhouse) => ({
-              value: String(greenhouse.id),
-              label: greenhouse.name,
-            })),
-          ]}
-        />
-      </div>
+      {fixedGreenhouseId === undefined && (
+        <div className="my-form__field">
+          <span>Теплица</span>
+          <Dropdown
+            value={greenhouseId}
+            onChange={setGreenhouseId}
+            placement="up"
+            placeholder="Пока не привязывать"
+            options={[
+              { value: '', label: 'Пока не привязывать' },
+              ...greenhouses.map((greenhouse) => ({
+                value: String(greenhouse.id),
+                label: greenhouse.name,
+              })),
+            ]}
+          />
+        </div>
+      )}
       <div className="my-form__status" aria-live="polite">
         {(fieldErrors.name || fieldErrors.serialNumber || error) && (
           <p className="form-error">{fieldErrors.name || fieldErrors.serialNumber || error}</p>
@@ -1106,7 +1140,10 @@ function DeviceSettingsForm({
         </small>
       </div>
       <fieldset className="my-type-options">
-        <legend>Тип устройства</legend>
+        <legend>Назначение устройства</legend>
+        <small className="my-type-options__hint">
+          Выберите назначение, указанное в паспорте или на самом устройстве.
+        </small>
         {Object.entries(deviceKindLabels).map(([value, label]) => (
           <button
             key={value}
@@ -1171,6 +1208,52 @@ function DeleteDeviceConfirm({
         </button>
       </div>
     </div>
+  );
+}
+
+function TemperatureAutomationPreview() {
+  return (
+    <section className="my-automation-panel" aria-labelledby="temperature-automation-title">
+      <header className="my-automation-panel__header">
+        <div>
+          <h2 id="temperature-automation-title">Автоматизация температуры</h2>
+          <p>Настройки автоматизации пока недоступны.</p>
+        </div>
+      </header>
+
+      <div className="my-automation-panel__content">
+        <label className="my-automation-switch">
+          <span>
+            <strong>Автоматический режим</strong>
+            <p>После включения система будет поддерживать выбранную температуру, открывая и закрывая форточку.</p>
+          </span>
+          <span className="my-automation-switch__control">
+            <input aria-label="Автоматический режим" disabled role="switch" type="checkbox" />
+            <i aria-hidden="true" />
+          </span>
+        </label>
+
+        <div className="my-automation-fields">
+          <label>
+            <span>Целевая температура</span>
+            <div><input aria-label="Целевая температура" disabled type="number" value="25" readOnly /><span>°C</span></div>
+          </label>
+          <label>
+            <span>Гистерезис</span>
+            <div><input aria-label="Гистерезис" disabled type="number" value="2" readOnly /><span>°C</span></div>
+          </label>
+        </div>
+
+        <div className="my-automation-thresholds">
+          <div><span>Открытие форточки</span><strong>выше 26 °C</strong></div>
+          <div><span>Закрытие форточки</span><strong>ниже 24 °C</strong></div>
+        </div>
+      </div>
+
+      <footer>
+        <button disabled type="button">Сохранить настройки</button>
+      </footer>
+    </section>
   );
 }
 
@@ -1439,6 +1522,10 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
     loadPage();
   }, [loadPage]);
 
+  useEffect(() => {
+    setDeviceKindFilter('all');
+  }, [routeState.greenhouseId]);
+
   const closeModal = () => {
     setModal(null);
     setDeviceModalMode('new');
@@ -1642,7 +1729,7 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
           <>
             <div className="my-device-filter">
               <div className="my-device-filter__field">
-                <span>Показать устройства</span>
+                <span>Назначение устройства</span>
                 <Dropdown
                   value={deviceKindFilter}
                   onChange={(value) => setDeviceKindFilter(value as DeviceKindFilter)}
@@ -1669,7 +1756,7 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
                   />
                 ))
               ) : (
-                <p className="my-inline-warning">Устройств выбранного типа в этой теплице нет.</p>
+                <p className="my-inline-warning">Устройств выбранного назначения в этой теплице нет.</p>
               )}
             </div>
           </>
@@ -1681,6 +1768,8 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
             </button>
           </div>
         )}
+
+        <TemperatureAutomationPreview />
 
         {modal === 'greenhouse-edit' && (
           <Modal title="Редактировать теплицу" size="compact" onClose={closeModal}>

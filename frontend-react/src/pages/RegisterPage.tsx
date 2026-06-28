@@ -1,8 +1,9 @@
 import { FormEvent, useState } from 'react';
+import type { LoginResponse, User } from '../types';
 import { getErrorMessage, getRequestErrorMessage } from '../utils/errors';
 
 type RegisterPageProps = {
-  onRegister: () => void;
+  onRegister: (token: string, user: User) => void;
 };
 
 function RegisterPage({ onRegister }: RegisterPageProps) {
@@ -51,7 +52,28 @@ function RegisterPage({ onRegister }: RegisterPageProps) {
         throw new Error(await getErrorMessage(response, 'Не удалось зарегистрироваться.'));
       }
 
-      onRegister();
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          username: email,
+          password,
+        }),
+      });
+
+      if (!loginResponse.ok) {
+        throw new Error(
+          await getErrorMessage(
+            loginResponse,
+            'Аккаунт создан, но автоматически войти не удалось. Перейдите на страницу входа.'
+          )
+        );
+      }
+
+      const loginData = (await loginResponse.json()) as LoginResponse;
+      onRegister(loginData.access_token, loginData.user);
     } catch (registerError) {
       setError(getRequestErrorMessage(registerError, 'Ошибка регистрации.'));
     } finally {

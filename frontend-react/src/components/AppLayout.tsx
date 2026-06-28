@@ -1,5 +1,7 @@
 import { navItems, routeTitles } from '../constants/routes';
+import { useLocalNotifications } from '../hooks/useLocalNotifications';
 import MyGreenhousesPage from '../pages/my-greenhouses/MyGreenhousesPage';
+import NotificationsPage from '../pages/NotificationsPage';
 import ProfilePage from '../pages/ProfilePage';
 import type { RouteState, User } from '../types';
 
@@ -24,6 +26,12 @@ function AppLayout({
 }: AppLayoutProps) {
   const isMyGreenhousesRoute =
     routeState.route === 'my-greenhouses' || routeState.route === 'my-greenhouse';
+  const { notifications, unreadCount, deleteNotification } = useLocalNotifications({
+    token,
+    user,
+    isNotificationsOpen: routeState.route === 'notifications',
+    onAuthExpired,
+  });
 
   return (
     <div className="app-shell">
@@ -51,7 +59,13 @@ function AppLayout({
                 }
                 href={item.path}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {item.route === 'notifications' && unreadCount > 0 && (
+                  <i
+                    aria-hidden="true"
+                    className="side-nav__notification-dot"
+                  />
+                )}
               </a>
             ))}
           </nav>
@@ -77,6 +91,8 @@ function AppLayout({
               onLogout={onLogout}
             />
           </>
+        ) : routeState.route === 'notifications' ? (
+          <NotificationsPage notifications={notifications} onDelete={deleteNotification} />
         ) : isMyGreenhousesRoute ? (
           <MyGreenhousesPage
             token={token}
