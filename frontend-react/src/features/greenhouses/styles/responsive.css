@@ -1,0 +1,98 @@
+@media (max-width: 980px) {
+  .my-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .my-modal-backdrop {
+    padding: 16px;
+  }
+
+  .my-modal {
+    max-height: calc(100vh - 32px);
+    overflow: auto;
+  }
+
+  .my-page__header,
+  .my-toolbar,
+  .my-device-card header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .my-device-card__header-actions {
+    align-items: flex-start;
+  }
+
+  .my-device-card__header-actions > div {
+    justify-content: flex-start;
+  }
+
+  .my-history__toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .my-history__toolbar .my-form__field {
+    min-width: 0;
+  }
+
+  .my-history__toolbar > span {
+    padding-bottom: 0;
+  }
+
+  .my-history__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .my-automation-fields,
+  .my-automation-thresholds {
+    grid-template-columns: 1fr;
+  }
+
+  .my-automation-thresholds > div + div {
+    padding-left: 0;
+  }
+
+  .my-device-visual-stage {
+    min-height: 330px;
+    padding: 22px;
+  }
+
+  .my-device-visual-details {
+    grid-template-columns: 1fr;
+  }
+
+  .my-toolbar__actions {
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .my-device-filter label,
+  .my-device-filter__field {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .my-device-filter select,
+  .my-device-filter .my-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .my-header-actions {
+    justify-content: flex-start;
+  }
+
+  .my-device-form {
+    grid-template-columns: 1fr;
+  }
+
+  .my-device-form .my-form__hint,
+  .my-device-form .form-error,
+  .my-device-form .my-form__actions,
+  .my-device-form .my-form__status {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}

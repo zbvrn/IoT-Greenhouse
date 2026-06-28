@@ -1,0 +1,12 @@
+:root {
+  --color-deep: #193A3C;
+  --color-leaf: #D5E6AB;
+  --color-paper: #FAFAF7;
+  --color-white: #FFFFFB;
+  --color-gray: #6F7774;
+  --color-line: #D8DED9;
+  --font-heading: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+}

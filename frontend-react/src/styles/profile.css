@@ -1,0 +1,146 @@
+.profile-page {
+  display: grid;
+  max-width: 1080px;
+  gap: 10px;
+  width: 100%;
+}
+
+.profile-panel {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  padding: clamp(16px, 2.2vw, 22px);
+}
+
+.profile-hero,
+.session-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.profile-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-avatar {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--color-deep);
+  border-radius: var(--radius-md);
+  background: var(--color-deep);
+  overflow: hidden;
+}
+
+.profile-avatar img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.profile-identity h2,
+.section-heading h2 {
+  margin: 0;
+  color: var(--color-deep);
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.16;
+}
+
+.profile-identity p,
+.section-heading p {
+  margin: 6px 0 0;
+  color: var(--color-gray);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.profile-identity p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.profile-panel > .profile-form:first-child {
+  margin-top: 0;
+}
+
+.form-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.secondary-action {
+  border-color: var(--color-line);
+  background: transparent;
+  color: var(--color-deep);
+}
+
+.secondary-action:hover:not(:disabled) {
+  border-color: var(--color-deep);
+  background: var(--color-leaf);
+  color: var(--color-deep);
+}
+
+.profile-feedback {
+  margin-top: -4px;
+}
+
+.my-spinner {
+  animation: my-spinner-rotation 0.8s linear infinite;
+  border: 3px solid rgba(25, 58, 60, 0.16);
+  border-radius: 50%;
+  border-top-color: var(--color-deep);
+  flex: 0 0 auto;
+  height: 30px;
+  width: 30px;
+}
+
+@keyframes my-spinner-rotation {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.section-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.back-link {
+  color: var(--color-gray);
+  display: inline-block;
+  font-size: 14px;
+  margin-bottom: 8px;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  color: var(--color-deep);
+}
+
+.form-actions button {
+  width: fit-content;
+}

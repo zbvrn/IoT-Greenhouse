@@ -1,0 +1,572 @@
+.my-device-visual-modal {
+  min-height: 0;
+  overflow-y: auto;
+  position: relative;
+}
+
+.my-device-visual-stage {
+  align-items: center;
+  background: #e8ece8;
+  border-bottom: 1px solid var(--color-line);
+  display: flex;
+  justify-content: center;
+  min-height: 390px;
+  overflow: hidden;
+  padding: 34px;
+}
+
+.my-device-render {
+  color: #152525;
+  position: relative;
+}
+
+.my-device-render__model {
+  color: #52605d;
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  text-align: center;
+}
+
+.my-device-render__screen {
+  background: #111817;
+  border: 4px solid #303b39;
+  border-radius: 6px;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.72), 0 1px 0 rgba(255, 255, 255, 0.52);
+  color: #d7f1a2;
+  display: grid;
+  gap: 7px;
+  min-height: 112px;
+  padding: 10px 12px;
+}
+
+.my-device-render__screen.is-compact {
+  border-width: 3px;
+  gap: 4px;
+  min-height: 72px;
+  padding: 7px 9px;
+}
+
+.my-device-render__screen-header {
+  align-items: center;
+  border-bottom: 1px solid rgba(215, 241, 162, 0.22);
+  display: flex;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  justify-content: space-between;
+  padding-bottom: 4px;
+}
+
+.my-device-render__screen-header i {
+  background: #8bd35e;
+  border-radius: 50%;
+  box-shadow: 0 0 5px rgba(139, 211, 94, 0.75);
+  height: 5px;
+  width: 5px;
+}
+
+.my-device-render__screen-row {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.my-device-render__screen-row span {
+  color: #9bae91;
+  font-family: Consolas, monospace;
+  font-size: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-device-render__screen-row strong {
+  color: #e2f7b8;
+  font-family: Consolas, monospace;
+  font-size: 17px;
+  font-weight: 500;
+  max-width: 118px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-device-render__screen.is-compact .my-device-render__screen-row strong {
+  font-size: 13px;
+  max-width: 82px;
+}
+
+.my-device-render__screen.is-dense {
+  gap: 4px;
+}
+
+.my-device-render__screen.is-dense .my-device-render__screen-row strong {
+  font-size: 12px;
+}
+
+.my-device-render__screen.is-dense .my-device-render__screen-row span {
+  font-size: 7px;
+}
+
+.my-device-render__screen-empty {
+  align-self: center;
+  color: #91a386;
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  text-align: center;
+}
+
+.my-device-render--sensor {
+  height: 300px;
+  width: 220px;
+}
+
+.my-device-render__sensor-case {
+  background: linear-gradient(145deg, #f4f5f0 0%, #d4d8d1 58%, #b7bdb8 100%);
+  border: 1px solid #9ca49f;
+  border-radius: 18px;
+  box-shadow: inset 0 2px 1px rgba(255, 255, 255, 0.82), 0 22px 36px rgba(24, 42, 40, 0.24);
+  display: grid;
+  gap: 13px;
+  inset: 0;
+  padding: 23px 22px 18px;
+  position: absolute;
+}
+
+.my-device-render__screw {
+  background: #78817c;
+  border: 1px solid #59615d;
+  border-radius: 50%;
+  height: 6px;
+  position: absolute;
+  top: 11px;
+  width: 6px;
+}
+
+.my-device-render__screw::after {
+  background: #424b47;
+  content: '';
+  height: 1px;
+  left: 1px;
+  position: absolute;
+  top: 2px;
+  width: 2px;
+}
+
+.my-device-render__screw.is-left { left: 12px; }
+.my-device-render__screw.is-right { right: 12px; }
+
+.my-device-render__vents {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.my-device-render__vents i {
+  background: #707a75;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.42);
+  height: 5px;
+}
+
+.my-device-render__indicator {
+  align-items: center;
+  color: #66716c;
+  display: flex;
+  font-size: 8px;
+  gap: 6px;
+  justify-content: center;
+}
+
+.my-device-render__indicator i {
+  background: #5ca34c;
+  border-radius: 50%;
+  box-shadow: 0 0 5px rgba(92, 163, 76, 0.58);
+  height: 6px;
+  width: 6px;
+}
+
+.my-device-render--soil {
+  height: 320px;
+  width: 210px;
+}
+
+.my-device-render__soil-controller {
+  background: linear-gradient(145deg, #303a38 0%, #17201f 100%);
+  border: 1px solid #0c1110;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 20px 32px rgba(21, 31, 29, 0.3);
+  display: grid;
+  gap: 13px;
+  left: 27px;
+  padding: 18px;
+  position: absolute;
+  top: 0;
+  width: 156px;
+  z-index: 2;
+}
+
+.my-device-render__soil-controller .my-device-render__model,
+.my-device-render__valve-controller .my-device-render__model,
+.my-device-render__actuator-motor .my-device-render__model {
+  color: #a8b2ad;
+}
+
+.my-device-render__ports {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.my-device-render__ports i,
+.my-device-render__connectors i {
+  background: #0e1413;
+  border: 2px solid #6e7773;
+  border-radius: 50%;
+  height: 10px;
+  width: 10px;
+}
+
+.my-device-render__soil-cable {
+  border: 7px solid #202927;
+  border-left: 0;
+  border-radius: 0 28px 28px 0;
+  height: 102px;
+  left: 98px;
+  position: absolute;
+  top: 174px;
+  width: 46px;
+}
+
+.my-device-render__soil-probes {
+  bottom: 0;
+  display: flex;
+  gap: 24px;
+  left: 67px;
+  position: absolute;
+}
+
+.my-device-render__soil-probes i {
+  background: linear-gradient(90deg, #777f7d, #e5e8e6 45%, #737b79);
+  border: 1px solid #59615f;
+  border-radius: 2px 2px 6px 6px;
+  height: 116px;
+  width: 15px;
+}
+
+.my-device-render--actuator {
+  height: 330px;
+  width: min(620px, 100%);
+}
+
+.my-device-render__actuator-motor {
+  background: linear-gradient(180deg, #353d3d 0%, #121818 100%);
+  border: 1px solid #060909;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 17px 30px rgba(18, 28, 27, 0.28);
+  display: grid;
+  gap: 12px;
+  left: 18px;
+  padding: 15px;
+  position: absolute;
+  top: 22px;
+  width: 205px;
+  z-index: 3;
+}
+
+.my-device-render__actuator-rail {
+  background: linear-gradient(180deg, #a9afae, #e2e5e4 45%, #858d8b);
+  border: 1px solid #717977;
+  border-radius: 7px;
+  box-shadow: 0 14px 22px rgba(18, 29, 28, 0.2);
+  height: 42px;
+  left: 207px;
+  overflow: hidden;
+  position: absolute;
+  right: 100px;
+  top: 102px;
+}
+
+.my-device-render__actuator-rail span {
+  background: rgba(25, 58, 60, 0.34);
+  display: block;
+  height: 100%;
+}
+
+.my-device-render__actuator-rod {
+  background: linear-gradient(180deg, #a6adaa, #f1f3f2 48%, #858c89);
+  border: 1px solid #747b78;
+  border-radius: 999px;
+  height: 17px;
+  max-width: 64%;
+  position: absolute;
+  right: 54px;
+  top: 114px;
+  z-index: 2;
+}
+
+.my-device-render__actuator-eye {
+  background: #555e5b;
+  border: 8px solid #252d2b;
+  border-radius: 50%;
+  height: 30px;
+  position: absolute;
+  right: 24px;
+  top: 107px;
+  width: 30px;
+}
+
+.my-device-render__actuator-bracket {
+  border-bottom: 10px solid #6e7774;
+  border-left: 16px solid transparent;
+  border-right: 16px solid transparent;
+  bottom: 35px;
+  height: 0;
+  left: 70px;
+  position: absolute;
+  width: 54px;
+}
+
+.my-device-render__controls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.my-device-render__controls button {
+  align-items: center;
+  background: linear-gradient(180deg, #56615e, #303937);
+  border: 1px solid #111817;
+  border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 3px rgba(0, 0, 0, 0.35);
+  color: #edf1ee;
+  display: flex;
+  font-size: 15px;
+  height: 31px;
+  justify-content: center;
+  min-width: 0;
+  padding: 0;
+}
+
+.my-device-render__controls button:hover:not(:disabled) {
+  background: linear-gradient(180deg, #65716d, #3c4744);
+}
+
+.my-device-render__controls button:active:not(:disabled) {
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.38);
+  transform: translateY(1px);
+}
+
+.my-device-render__controls button:focus-visible {
+  outline: 2px solid #8bc57c;
+  outline-offset: 2px;
+}
+
+.my-device-render__controls button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.my-device-render--valve {
+  height: 370px;
+  width: min(540px, 100%);
+}
+
+.my-device-render__pipe {
+  background: linear-gradient(180deg, #7a807e, #d8dcda 48%, #686f6d);
+  border: 1px solid #646b69;
+  border-radius: 8px;
+  height: 66px;
+  left: 10px;
+  position: absolute;
+  right: 10px;
+  top: 245px;
+}
+
+.my-device-render__valve-body {
+  background: linear-gradient(145deg, #c5a553, #796020 55%, #d8bc6c);
+  border: 1px solid #66501d;
+  border-radius: 30px;
+  box-shadow: inset 0 2px 2px rgba(255, 245, 190, 0.46), 0 18px 28px rgba(48, 42, 24, 0.24);
+  height: 130px;
+  left: 50%;
+  position: absolute;
+  top: 208px;
+  transform: translateX(-50%);
+  width: 182px;
+  z-index: 2;
+}
+
+.my-device-render__valve-bolts i {
+  background: #686e6b;
+  border: 1px solid #444a47;
+  border-radius: 50%;
+  height: 12px;
+  position: absolute;
+  width: 12px;
+}
+
+.my-device-render__valve-bolts i:nth-child(1) { left: 18px; top: 22px; }
+.my-device-render__valve-bolts i:nth-child(2) { right: 18px; top: 22px; }
+.my-device-render__valve-bolts i:nth-child(3) { bottom: 22px; left: 18px; }
+.my-device-render__valve-bolts i:nth-child(4) { bottom: 22px; right: 18px; }
+
+.my-device-render__valve-controller {
+  background: linear-gradient(145deg, #35403e, #141b1a);
+  border: 1px solid #0b0f0f;
+  border-radius: 10px;
+  box-shadow: 0 17px 28px rgba(17, 27, 25, 0.28);
+  display: grid;
+  gap: 10px;
+  left: 50%;
+  padding: 15px;
+  position: absolute;
+  top: 10px;
+  transform: translateX(-50%);
+  width: 220px;
+  z-index: 3;
+}
+
+.my-device-render--other {
+  min-height: 290px;
+  padding-top: 28px;
+  width: min(300px, 100%);
+}
+
+.my-device-render__rugged-case {
+  background: linear-gradient(145deg, #4a5350, #202826 65%, #151b1a);
+  border: 2px solid #111716;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 21px 34px rgba(18, 29, 27, 0.28);
+  display: grid;
+  gap: 15px;
+  min-height: 254px;
+  padding: 22px;
+  position: relative;
+}
+
+.my-device-render__rugged-case .my-device-render__model {
+  color: #b5beb9;
+}
+
+.my-device-render__identity {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.my-device-render__type {
+  color: #eef2ef;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.my-device-render__antenna {
+  background: linear-gradient(90deg, #171d1c, #4e5754, #151b1a);
+  border-radius: 5px 5px 0 0;
+  height: 78px;
+  position: absolute;
+  right: 40px;
+  top: 0;
+  width: 15px;
+}
+
+.my-device-render--other.has-controls .my-device-render__rugged-case {
+  min-height: 300px;
+}
+
+.my-device-render__connectors {
+  display: flex;
+  gap: 22px;
+  justify-content: center;
+}
+
+.my-device-visual-details {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  padding: 22px;
+}
+
+.my-device-visual-feedback {
+  margin: 0 22px 20px;
+}
+
+.my-device-visual-toast {
+  align-items: flex-start;
+  background: #fff5f4;
+  border: 1px solid #d86a62;
+  border-radius: 7px;
+  box-shadow: 0 12px 30px rgba(46, 23, 21, 0.2);
+  color: #8d2821;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  max-width: min(390px, calc(100% - 32px));
+  padding: 13px 14px;
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 4;
+}
+
+.my-device-visual-toast button {
+  background: transparent;
+  border: 0;
+  color: currentColor;
+  flex: 0 0 auto;
+  font-size: 20px;
+  height: 24px;
+  line-height: 1;
+  padding: 0;
+  width: 24px;
+}
+
+.my-device-visual-toast button:hover {
+  background: rgba(141, 40, 33, 0.08);
+}
+
+.my-device-visual-details > div > span {
+  color: var(--color-gray);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.my-device-visual-details h3 {
+  font-size: 21px;
+  margin: 6px 0;
+}
+
+.my-device-visual-details p,
+.my-device-visual-details time {
+  color: var(--color-gray);
+  display: block;
+  margin: 0 0 6px;
+}
+
+.my-device-visual-details dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.my-device-visual-details dl > div {
+  align-items: baseline;
+  border-bottom: 1px solid var(--color-line);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.my-device-visual-details dt {
+  color: var(--color-gray);
+}
+
+.my-device-visual-details dd {
+  font-size: 17px;
+  margin: 0;
+}

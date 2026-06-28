@@ -1,0 +1,131 @@
+.app-shell {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+}
+
+.sidebar {
+  display: flex;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  min-height: 100vh;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid var(--color-line);
+  background: var(--color-deep);
+  color: var(--color-white);
+  overflow: auto;
+  padding: 24px 20px;
+}
+
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 36px;
+}
+
+.brand-mark {
+  background: transparent;
+  border-radius: var(--radius-sm);
+  display: block;
+  height: 42px;
+  overflow: hidden;
+  position: relative;
+  width: 42px;
+}
+
+.brand-mark img {
+  height: 68px;
+  left: 50%;
+  max-width: none;
+  position: absolute;
+  top: calc(50% + 1px);
+  transform: translate(-50%, -50%);
+  width: 68px;
+}
+
+.brand span {
+  display: block;
+}
+
+.brand-name {
+  color: var(--color-leaf);
+  font-family: var(--font-heading);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.side-nav {
+  display: grid;
+  gap: 4px;
+}
+
+.side-nav a {
+  align-items: center;
+  border-left: 2px solid transparent;
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  padding: 10px 8px 10px 12px;
+  color: var(--color-white);
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.side-nav__notification-dot {
+  background: #dcecae;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  height: 10px;
+  width: 10px;
+}
+
+.side-nav a:hover,
+.side-nav a.active {
+  border-left-color: var(--color-leaf);
+  background: rgba(213, 230, 171, 0.08);
+  color: var(--color-leaf);
+}
+
+.sidebar-account {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid rgba(213, 230, 171, 0.45);
+  padding-top: 18px;
+}
+
+.sidebar-account span {
+  overflow: hidden;
+  color: var(--color-white);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-account button {
+  width: 100%;
+  border-color: var(--color-leaf);
+  background: transparent;
+  color: var(--color-leaf);
+}
+
+.sidebar-account button:hover:not(:disabled) {
+  background: var(--color-leaf);
+  color: var(--color-deep);
+}
+
+.workspace {
+  min-width: 0;
+  padding: clamp(24px, 3vw, 40px);
+}
+
+.empty-state {
+  color: var(--color-gray);
+  font-size: 16px;
+}
+
+.empty-state p {
+  margin: 0;
+}
