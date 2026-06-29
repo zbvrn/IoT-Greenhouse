@@ -42,6 +42,12 @@
   padding: 18px;
 }
 
+.my-modal--history .my-history {
+  flex: 0 0 auto;
+  min-height: max-content;
+  overflow: visible;
+}
+
 .my-history__toolbar {
   align-items: end;
   display: flex;
@@ -88,19 +94,38 @@
   background: #f8fbf9;
   border: 1px solid var(--color-line);
   border-radius: 7px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 12px;
 }
 
 .my-history__chart svg {
   display: block;
-  height: 210px;
+  height: 270px;
+  min-height: 270px;
+  min-width: 680px;
   width: 100%;
 }
 
-.my-history__chart line {
-  stroke: #b9c8c1;
+.my-history__grid-line {
+  stroke: #dce5e0;
   stroke-width: 1;
+}
+
+.my-history__axis-line {
+  stroke: #91a59b;
+  stroke-width: 1.2;
+}
+
+.my-history__axis-tick {
+  fill: var(--color-gray);
+  font-size: 11px;
+}
+
+.my-history__axis-title {
+  fill: var(--color-deep);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .my-history__chart polyline {
@@ -109,6 +134,12 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 3;
+}
+
+.my-history__point {
+  fill: #286a55;
+  stroke: var(--color-white);
+  stroke-width: 2;
 }
 
 .my-history__table-wrap {

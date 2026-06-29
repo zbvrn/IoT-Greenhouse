@@ -70,6 +70,31 @@ export function getLatestSample(samples: TelemetrySample[]) {
   );
 }
 
+export function mergeDeviceTelemetry(
+  previous: DeviceTelemetry | undefined,
+  incoming: DeviceTelemetry
+): DeviceTelemetry {
+  if (!previous) return incoming;
+
+  const keys = new Set([
+    ...Object.keys(previous.telemetry),
+    ...Object.keys(incoming.telemetry),
+  ]);
+  const telemetry: DeviceTelemetry['telemetry'] = {};
+
+  keys.forEach((key) => {
+    const samplesByTimestamp = new Map<number, TelemetrySample>();
+    [...(previous.telemetry[key] || []), ...(incoming.telemetry[key] || [])].forEach(
+      (sample) => samplesByTimestamp.set(sample.ts, sample)
+    );
+    telemetry[key] = Array.from(samplesByTimestamp.values()).sort(
+      (left, right) => left.ts - right.ts
+    );
+  });
+
+  return { ...incoming, telemetry };
+}
+
 export function getTelemetryRows(telemetry?: DeviceTelemetry) {
   if (!telemetry) return [];
 

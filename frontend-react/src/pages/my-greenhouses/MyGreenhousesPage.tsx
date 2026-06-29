@@ -17,6 +17,7 @@ import TemperatureAutomationPreview from '../../features/greenhouses/components/
 import { deviceKindFilterLabels } from '../../features/greenhouses/model/constants';
 import { buildDeviceMetadata, getDeviceKind } from '../../features/greenhouses/model/devices';
 import { getFriendlyError } from '../../features/greenhouses/model/errors';
+import { mergeDeviceTelemetry } from '../../features/greenhouses/model/telemetry';
 import type {
   DeviceCommand,
   DeviceKindFilter,
@@ -81,7 +82,17 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
           );
         }
       });
-      setTelemetry((current) => ({ ...current, ...nextTelemetry }));
+      setTelemetry((current) => {
+        const merged = { ...current };
+        Object.entries(nextTelemetry).forEach(([deviceId, incoming]) => {
+          const numericDeviceId = Number(deviceId);
+          merged[numericDeviceId] = mergeDeviceTelemetry(
+            current[numericDeviceId],
+            incoming
+          );
+        });
+        return merged;
+      });
       setTelemetryErrors(nextErrors);
       setIsRefreshing(false);
     },

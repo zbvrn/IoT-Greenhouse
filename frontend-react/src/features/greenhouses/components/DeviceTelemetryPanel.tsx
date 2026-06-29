@@ -43,25 +43,61 @@ function TelemetryHistory({ telemetry }: { telemetry: DeviceTelemetry }) {
   const summary = getNumericTelemetrySummary(samples);
   const unit = getTelemetryUnit(selectedKey);
   const chartWidth = 720;
-  const chartHeight = 210;
-  const chartPadding = 22;
+  const chartHeight = 270;
+  const chartLeft = 68;
+  const chartRight = 24;
+  const chartTop = 20;
+  const chartBottom = 54;
+  const plotWidth = chartWidth - chartLeft - chartRight;
+  const plotHeight = chartHeight - chartTop - chartBottom;
   const numericValues = summary?.samples || [];
-  const valueRange = summary ? summary.max - summary.min || 1 : 1;
-  const points = numericValues
-    .map((sample, index) => {
-      const x =
-        numericValues.length === 1
-          ? chartWidth / 2
-          : chartPadding +
-            (index / (numericValues.length - 1)) * (chartWidth - chartPadding * 2);
-      const y =
-        chartHeight -
-        chartPadding -
-        ((sample.numericValue - (summary?.min || 0)) / valueRange) *
-          (chartHeight - chartPadding * 2);
-      return `${x},${y}`;
-    })
-    .join(' ');
+  const timeMin = numericValues[0]?.ts || 0;
+  const timeMax = numericValues[numericValues.length - 1]?.ts || timeMin;
+  const timeRange = timeMax - timeMin;
+  const rawValueRange = summary ? summary.max - summary.min : 0;
+  const valuePadding = summary
+    ? rawValueRange > 0
+      ? rawValueRange * 0.12
+      : Math.max(Math.abs(summary.max) * 0.05, 1)
+    : 1;
+  const valueMin = (summary?.min || 0) - valuePadding;
+  const valueMax = (summary?.max || 0) + valuePadding;
+  const valueRange = valueMax - valueMin || 1;
+  const getX = (timestamp: number) =>
+    timeRange > 0
+      ? chartLeft + ((timestamp - timeMin) / timeRange) * plotWidth
+      : chartLeft + plotWidth / 2;
+  const getY = (value: number) =>
+    chartTop + ((valueMax - value) / valueRange) * plotHeight;
+  const chartPoints = numericValues.map((sample) => ({
+    ...sample,
+    x: getX(sample.ts),
+    y: getY(sample.numericValue),
+  }));
+  const points = chartPoints.map(({ x, y }) => `${x},${y}`).join(' ');
+  const yTicks = Array.from({ length: 5 }, (_, index) => {
+    const ratio = index / 4;
+    return {
+      value: valueMax - ratio * valueRange,
+      y: chartTop + ratio * plotHeight,
+    };
+  });
+  const xTickCount = Math.min(numericValues.length, 5);
+  const xTickIndexes = Array.from(
+    new Set(
+      Array.from({ length: xTickCount }, (_, index) =>
+        Math.round((index / Math.max(xTickCount - 1, 1)) * (numericValues.length - 1))
+      )
+    )
+  );
+  const showDateOnAxis = timeRange >= 24 * 60 * 60 * 1000;
+  const formatAxisTime = (timestamp: number) =>
+    new Date(timestamp).toLocaleString('ru-RU', {
+      ...(showDateOnAxis ? { day: '2-digit', month: '2-digit' } : {}),
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
 
   return (
     <div className="my-history">
@@ -94,9 +130,58 @@ function TelemetryHistory({ telemetry }: { telemetry: DeviceTelemetry }) {
           <div className="my-history__chart" aria-label={`График: ${getTelemetryLabel(selectedKey)}`}>
             <svg role="img" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
               <title>История показателя «{getTelemetryLabel(selectedKey)}»</title>
-              <line x1={chartPadding} y1={chartPadding} x2={chartPadding} y2={chartHeight - chartPadding} />
-              <line x1={chartPadding} y1={chartHeight - chartPadding} x2={chartWidth - chartPadding} y2={chartHeight - chartPadding} />
-              <polyline points={points} />
+              {yTicks.map((tick) => (
+                <g key={tick.y}>
+                  <line
+                    className="my-history__grid-line"
+                    x1={chartLeft}
+                    x2={chartWidth - chartRight}
+                    y1={tick.y}
+                    y2={tick.y}
+                  />
+                  <text className="my-history__axis-tick" textAnchor="end" x={chartLeft - 10} y={tick.y + 4}>
+                    {formatNumericValue(tick.value)}
+                  </text>
+                </g>
+              ))}
+              {xTickIndexes.map((index) => {
+                const sample = numericValues[index];
+                const x = getX(sample.ts);
+                return (
+                  <g key={`${sample.ts}-${index}`}>
+                    <line
+                      className="my-history__grid-line"
+                      x1={x}
+                      x2={x}
+                      y1={chartTop}
+                      y2={chartTop + plotHeight}
+                    />
+                    <text className="my-history__axis-tick" textAnchor="middle" x={x} y={chartTop + plotHeight + 22}>
+                      {formatAxisTime(sample.ts)}
+                    </text>
+                  </g>
+                );
+              })}
+              <line className="my-history__axis-line" x1={chartLeft} y1={chartTop} x2={chartLeft} y2={chartTop + plotHeight} />
+              <line className="my-history__axis-line" x1={chartLeft} y1={chartTop + plotHeight} x2={chartWidth - chartRight} y2={chartTop + plotHeight} />
+              <text
+                className="my-history__axis-title"
+                textAnchor="middle"
+                transform={`rotate(-90 16 ${chartTop + plotHeight / 2})`}
+                x={16}
+                y={chartTop + plotHeight / 2}
+              >
+                {getTelemetryLabel(selectedKey)}{unit ? `, ${unit}` : ''}
+              </text>
+              <text className="my-history__axis-title" textAnchor="middle" x={chartLeft + plotWidth / 2} y={chartHeight - 7}>
+                Время
+              </text>
+              {chartPoints.length > 1 && <polyline points={points} />}
+              {chartPoints.map((point) => (
+                <circle className="my-history__point" cx={point.x} cy={point.y} key={`${point.ts}-${point.numericValue}`} r="4">
+                  <title>{formatDateTime(point.ts)}: {formatNumericValue(point.numericValue)} {unit}</title>
+                </circle>
+              ))}
             </svg>
           </div>
         </>
@@ -424,7 +509,7 @@ export function DeviceTelemetryPanel({
         </Modal>
       )}
       {isHistoryOpen && telemetry && (
-        <Modal title={`История: ${device.name}`} size="wide" onClose={() => setIsHistoryOpen(false)}>
+        <Modal title={`История: ${device.name}`} size="history" onClose={() => setIsHistoryOpen(false)}>
           <TelemetryHistory telemetry={telemetry} />
         </Modal>
       )}

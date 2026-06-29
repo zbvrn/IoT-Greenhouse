@@ -9,7 +9,7 @@ export default function Modal({
   title: string;
   children: React.ReactNode;
   onClose: () => void;
-  size?: 'compact' | 'regular' | 'wide';
+  size?: 'compact' | 'regular' | 'wide' | 'history';
 }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
