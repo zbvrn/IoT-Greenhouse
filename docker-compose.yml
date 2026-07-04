@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   backend:
     build:
@@ -40,10 +38,25 @@ services:
       retries: 5
       start_period: 20s
 
+  frontend-react:
+    build:
+      context: .
+      dockerfile: frontend-react/Dockerfile
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
   nginx:
     image: nginx:latest
     depends_on:
       - frontend
+      - frontend-react
       - backend
     ports:
       - "80:80"

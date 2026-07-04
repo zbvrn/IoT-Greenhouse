@@ -15,7 +15,8 @@
 - [`backend/`](backend/README.md:1) — сервис на FastAPI/SQLModel с JWT, ThingsBoard-интеграцией и полным описанием маршрутов, моделей, зависимостей и переменных окружения с примерами (`backend/README.md`).
 - [`growing/`](growing/README.md:1) — шаблонное Django-приложение `main` с простыми представлениями, страницами (включая логин, дашборд, уведомления, добавление устройств) и статикой, описанное в [`growing/README.md`](growing/README.md:1).
 - [`docs/`](docs/index.adoc:1) — документация AsciiDoc и диаграммы, включая OpenAPI (`docs/swagger/IoT_Greenhouse.yaml`).
-- [`frontend/`](frontend/architecture.md:1) — прототипы и черновики интерфейсов (актуальный фронтенд оформляется в этом каталоге).
+- [`frontend/`](frontend/architecture.md:1) — Django-интерфейс и связанные с ним материалы.
+- [`frontend-react/`](frontend-react/README.md:1) — альтернативный вариант пользовательского интерфейса на React.
 
 ---
 
@@ -105,6 +106,77 @@ python manage.py runserver 0.0.0.0:8010 # Changed to 0.0.0.0 for consistency
 -   **Качество кода:** Мы используем `Black` для форматирования, `Flake8` для линтинга и `pre-commit` хуки для автоматической проверки кода перед коммитом. Установите их перед началом работы (`pre-commit install`).
 -   **Тестирование:** Пишите тесты для нового функционала.
 -   **Документация:** Обновляйте соответствующую документацию (`README.md`, `docs/`) по мере необходимости.
+
+---
+
+## Запуск альтернативного React-интерфейса
+
+Один из возможных вариантов пользовательского интерфейса находится в
+`frontend-react/` и входит в основной Docker Compose. Для запуска требуются Docker с плагином Compose и
+локальные файлы настроек:
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+Заполните параметры подключения к ThingsBoard и секрет JWT в `backend/.env`.
+Файлы `.env` содержат локальные настройки и не должны добавляться в Git.
+
+Соберите и запустите всю систему:
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+После запуска доступны:
+
+- `http://localhost` — альтернативный React-интерфейс через общий Nginx;
+- `http://localhost:3000` — прямой доступ к React-контейнеру;
+- `http://localhost:8002/docs` — документация FastAPI;
+- `http://localhost:8000` — прежняя Django-панель.
+
+React-контейнер обслуживает собранные статические файлы через Nginx. Запросы
+`/api/` проксируются во внутренний сервис `backend:8001`, поэтому адрес backend
+не требуется встраивать в JavaScript-сборку.
+
+Посмотреть состояние и журналы:
+
+```bash
+docker compose ps
+docker compose logs -f frontend-react
+docker compose logs -f backend
+```
+
+Остановить контейнеры без удаления пользовательской базы:
+
+```bash
+docker compose stop
+```
+
+Команда `docker compose down` удаляет контейнеры и сеть, но сохраняет именованные
+тома. Не используйте `docker compose down -v`, если нужно сохранить локальную
+базу пользователей, теплиц и устройств.
+
+Для запуска только React-интерфейса после изменения его исходников:
+
+```bash
+docker compose up -d --build frontend-react
+```
+
+Для работы API при прямом открытии `http://localhost:3000` контейнер backend
+также должен быть запущен. Пересобирать backend при изменениях React не нужно.
+
+Эмулятор ThingsBoard запускается отдельно, поскольку содержит локальные токены:
+
+```bash
+cp mock/config-sample.json mock/config.json
+docker compose -f mock/docker-compose.yml up -d
+docker compose -f mock/docker-compose.yml logs -f greenhouse-emulator
+```
+
+Заполните токены устройств в `mock/config.json`. Этот файл исключён из Git.
 
 ---
 
