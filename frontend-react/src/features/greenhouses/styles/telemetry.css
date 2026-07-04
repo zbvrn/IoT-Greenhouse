@@ -20,6 +20,40 @@
 .my-telemetry-grid dd {
   font-size: 1.2rem;
   margin: 4px 0;
+  min-width: 0;
+}
+
+.my-telemetry-value {
+  align-items: baseline;
+  display: flex;
+  gap: 5px;
+  min-width: 0;
+}
+
+.my-telemetry-value > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.my-telemetry-value.is-expanded {
+  align-items: flex-start;
+}
+
+.my-telemetry-value.is-expanded > span {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.my-telemetry-value button {
+  background: transparent;
+  border: 0;
+  color: var(--color-green);
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+  min-height: 0;
+  padding: 0 2px;
 }
 
 .my-telemetry-grid small,

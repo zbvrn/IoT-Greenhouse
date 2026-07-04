@@ -26,7 +26,7 @@ function AppLayout({
 }: AppLayoutProps) {
   const isMyGreenhousesRoute =
     routeState.route === 'my-greenhouses' || routeState.route === 'my-greenhouse';
-  const { notifications, unreadCount, deleteNotification } = useLocalNotifications({
+  const { notifications, unreadCount, deleteNotification, clearNotifications } = useLocalNotifications({
     token,
     user,
     isNotificationsOpen: routeState.route === 'notifications',
@@ -92,7 +92,11 @@ function AppLayout({
             />
           </>
         ) : routeState.route === 'notifications' ? (
-          <NotificationsPage notifications={notifications} onDelete={deleteNotification} />
+          <NotificationsPage
+            notifications={notifications}
+            onDelete={deleteNotification}
+            onDeleteAll={clearNotifications}
+          />
         ) : isMyGreenhousesRoute ? (
           <MyGreenhousesPage
             token={token}

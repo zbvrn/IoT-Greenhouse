@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Dropdown from '../../components/ui/Dropdown';
 import {
   AssignDeviceForm,
@@ -13,11 +13,21 @@ import {
 } from '../../features/greenhouses/components/GreenhouseComponents';
 import LoadingState from '../../features/greenhouses/components/LoadingState';
 import Modal from '../../features/greenhouses/components/Modal';
-import TemperatureAutomationPreview from '../../features/greenhouses/components/TemperatureAutomationPreview';
+import GreenhouseAutomationPanel from '../../features/greenhouses/components/GreenhouseAutomationPanel';
 import { deviceKindFilterLabels } from '../../features/greenhouses/model/constants';
-import { buildDeviceMetadata, getDeviceKind } from '../../features/greenhouses/model/devices';
+import {
+  buildDeviceMetadata,
+  getComponentRole,
+  getDeviceKind,
+  getSystemId,
+  getSystemName,
+} from '../../features/greenhouses/model/devices';
 import { getFriendlyError } from '../../features/greenhouses/model/errors';
 import { mergeDeviceTelemetry } from '../../features/greenhouses/model/telemetry';
+import {
+  groupDevicesIntoSystems,
+  mergeSystemTelemetry,
+} from '../../features/greenhouses/model/systems';
 import type {
   DeviceCommand,
   DeviceKindFilter,
@@ -45,16 +55,24 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
   const [modal, setModal] = useState<ModalName>(null);
   const [deviceModalMode, setDeviceModalMode] = useState<'new' | 'assign'>('new');
   const [deviceKindFilter, setDeviceKindFilter] = useState<DeviceKindFilter>('all');
+  const isAutoRefreshRunning = useRef(false);
 
   const selectedGreenhouse = greenhouses.find((item) => item.id === routeState.greenhouseId);
   const greenhouseDevices = selectedGreenhouse
     ? devices.filter((device) => device.greenhouse_id === selectedGreenhouse.id)
     : [];
-  const filteredGreenhouseDevices =
+  const greenhouseSystems = groupDevicesIntoSystems(greenhouseDevices);
+  const filteredGreenhouseSystems =
     deviceKindFilter === 'all'
-      ? greenhouseDevices
-      : greenhouseDevices.filter((device) => getDeviceKind(device) === deviceKindFilter);
+      ? greenhouseSystems
+      : greenhouseSystems.filter((system) => system.kind === deviceKindFilter);
   const unassignedDevices = devices.filter((device) => device.greenhouse_id == null);
+  const hasClimateControl = greenhouseDevices.some(
+    (device) => getDeviceKind(device) === 'climate_control'
+  );
+  const hasSoilIrrigation = greenhouseDevices.some(
+    (device) => getDeviceKind(device) === 'soil_irrigation'
+  );
 
   const loadTelemetry = useCallback(
     async (deviceList: Device[], quiet = false) => {
@@ -140,6 +158,26 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
     setDeviceKindFilter('all');
   }, [routeState.greenhouseId]);
 
+  useEffect(() => {
+    if (routeState.route !== 'my-greenhouse' || !routeState.greenhouseId) return;
+    const devicesToRefresh = devices.filter(
+      (device) => device.greenhouse_id === routeState.greenhouseId
+    );
+    if (!devicesToRefresh.length) return;
+
+    const intervalId = window.setInterval(async () => {
+      if (document.hidden || isAutoRefreshRunning.current) return;
+      isAutoRefreshRunning.current = true;
+      try {
+        await loadTelemetry(devicesToRefresh, true);
+      } finally {
+        isAutoRefreshRunning.current = false;
+      }
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [devices, loadTelemetry, routeState.greenhouseId, routeState.route]);
+
   const closeModal = () => {
     setModal(null);
     setDeviceModalMode('new');
@@ -210,7 +248,15 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
     const currentMetadata = device.metadata || device.device_metadata || {};
     const preservedMetadata = Object.fromEntries(
       Object.entries(currentMetadata).filter(
-        ([key]) => !['device_type', 'sensor_type', 'actuator_type'].includes(key)
+        ([key]) =>
+          ![
+            'device_type',
+            'sensor_type',
+            'actuator_type',
+            'strokeLength',
+            'strokeSpeed',
+            'valveOpenPercent',
+          ].includes(key)
       )
     );
     const updated = await requestJson<Device>(`/api/devices/${device.id}`, {
@@ -218,7 +264,17 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: payload.name,
-        metadata: { ...preservedMetadata, ...buildDeviceMetadata(payload.kind) },
+        metadata: {
+          ...preservedMetadata,
+          ...buildDeviceMetadata(payload.kind, {
+            strokeLength: payload.strokeLength,
+            strokeSpeed: payload.strokeSpeed,
+            valveOpenPercent: payload.valveOpenPercent,
+            componentRole: getComponentRole(device),
+            systemId: getSystemId(device),
+            systemName: getSystemName(device),
+          }),
+        },
         ...(payload.greenhouseId ? { greenhouse_id: payload.greenhouseId } : {}),
       }),
       fallbackError: 'Попробуйте позже: устройство не удалось сохранить.',
@@ -247,6 +303,23 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
     });
   };
 
+  const renameSystem = async (systemDevices: Device[], name: string) => {
+    const updatedDevices = await Promise.all(
+      systemDevices.map((device) => {
+        const metadata = device.metadata || device.device_metadata || {};
+        return requestJson<Device>(`/api/devices/${device.id}`, {
+          method: 'PUT',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ metadata: { ...metadata, system_name: name } }),
+          fallbackError: 'Попробуйте позже: название системы не удалось сохранить.',
+          onAuthExpired,
+        });
+      })
+    );
+    const updatesById = new Map(updatedDevices.map((device) => [device.id, device]));
+    setDevices((current) => current.map((device) => updatesById.get(device.id) || device));
+  };
+
   const deleteGreenhouse = async () => {
     if (!selectedGreenhouse || greenhouseDevices.length) return;
     await requestVoid(`/api/greenhouses/${selectedGreenhouse.id}`, {
@@ -260,18 +333,19 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
     window.location.hash = '#/my-greenhouses';
   };
 
-  const sendCommand = async (device: Device, command: DeviceCommand) => {
+  const sendRpc = async (device: Device, method: string, params: Record<string, unknown>) => {
     await requestJson<{ message: string }>(`/api/rpc/${device.id}`, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        method: 'setActuatorState',
-        params: { state: command },
-      }),
+      body: JSON.stringify({ method, params }),
       fallbackError: 'Попробуйте позже: команду не удалось отправить.',
       onAuthExpired,
     });
-    window.setTimeout(() => loadTelemetry([device], true), 1200);
+  };
+
+  const sendCommand = async (device: Device, command: DeviceCommand) => {
+    await sendRpc(device, 'setActuatorState', { state: command });
+    window.setTimeout(() => loadTelemetry(greenhouseDevices, true), 1200);
   };
 
   if (isLoading) return <LoadingState />;
@@ -343,7 +417,7 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
           <>
             <div className="my-device-filter">
               <div className="my-device-filter__field">
-                <span>Назначение устройства</span>
+                <span>Тип системы</span>
                 <Dropdown
                   value={deviceKindFilter}
                   onChange={(value) => setDeviceKindFilter(value as DeviceKindFilter)}
@@ -356,13 +430,29 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
               </div>
             </div>
             <div className="my-device-list">
-              {filteredGreenhouseDevices.length ? (
-                filteredGreenhouseDevices.map((device) => (
+              {filteredGreenhouseSystems.length ? (
+                filteredGreenhouseSystems.map((system) => (
                   <DeviceTelemetryPanel
-                    key={device.id}
-                    device={device}
-                    telemetry={telemetry[device.id]}
-                    telemetryError={telemetryErrors[device.id]}
+                    key={system.id}
+                    device={system.primary}
+                    displayName={system.devices.length > 1 ? system.name : system.primary.name}
+                    componentCount={system.devices.length}
+                    commandDevice={system.commandTarget}
+                    systemDevices={system.devices}
+                    onRenameSystem={(name) => renameSystem(system.devices, name)}
+                    onConfigureActuator={async (settings) => {
+                      if (!system.commandTarget) throw new Error('Контроллер системы не найден.');
+                      await sendRpc(
+                        system.commandTarget,
+                        system.kind === 'soil_irrigation' ? 'setIrrigationConfig' : 'setActuatorConfig',
+                        settings
+                      );
+                    }}
+                    telemetry={mergeSystemTelemetry(system, telemetry)}
+                    telemetryError={system.devices
+                      .map((device) => telemetryErrors[device.id])
+                      .filter(Boolean)
+                      .join(' ')}
                     onCommand={sendCommand}
                     greenhouses={greenhouses}
                     onUpdate={updateDevice}
@@ -383,7 +473,44 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
           </div>
         )}
 
-        <TemperatureAutomationPreview />
+        {(hasClimateControl || hasSoilIrrigation) && selectedGreenhouse && (
+          <GreenhouseAutomationPanel
+            key={selectedGreenhouse.id}
+            greenhouseId={selectedGreenhouse.id}
+            hasClimateControl={hasClimateControl}
+            hasSoilIrrigation={hasSoilIrrigation}
+            onSaveTemperature={async (draft) => {
+              const targets = greenhouseSystems
+                .filter((system) => system.kind === 'climate_control' && system.commandTarget)
+                .map((system) => system.commandTarget as Device);
+              if (!targets.length) throw new Error('Контроллер климатической системы не найден.');
+              await Promise.all(
+                targets.map((target) =>
+                  sendRpc(target, 'setAutomationConfig', {
+                    enabled: draft.enabled,
+                    targetTemperature: draft.target,
+                    hysteresis: draft.hysteresis,
+                  })
+                )
+              );
+            }}
+            onSaveMoisture={async (draft) => {
+              const targets = greenhouseSystems
+                .filter((system) => system.kind === 'soil_irrigation' && system.commandTarget)
+                .map((system) => system.commandTarget as Device);
+              if (!targets.length) throw new Error('Контроллер системы полива не найден.');
+              await Promise.all(
+                targets.map((target) =>
+                  sendRpc(target, 'setMoistureAutomationConfig', {
+                    enabled: draft.enabled,
+                    targetMoisture: draft.target,
+                    hysteresis: draft.hysteresis,
+                  })
+                )
+              );
+            }}
+          />
+        )}
 
         {modal === 'greenhouse-edit' && (
           <Modal title="Редактировать теплицу" size="compact" onClose={closeModal}>
@@ -418,6 +545,7 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
             {deviceModalMode === 'new' ? (
               <DeviceCreateForm
                 greenhouses={greenhouses}
+                devices={devices}
                 fixedGreenhouseId={selectedGreenhouse.id}
                 onSubmit={createDevice}
               />
@@ -498,7 +626,7 @@ function MyGreenhousesPage({ token, routeState, onAuthExpired }: Props) {
 
       {modal === 'device-create' && (
         <Modal title="Добавить устройство" size="wide" onClose={closeModal}>
-          <DeviceCreateForm greenhouses={greenhouses} onSubmit={createDevice} />
+          <DeviceCreateForm greenhouses={greenhouses} devices={devices} onSubmit={createDevice} />
         </Modal>
       )}
     </section>

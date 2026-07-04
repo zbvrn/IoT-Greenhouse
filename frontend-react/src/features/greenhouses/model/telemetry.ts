@@ -1,4 +1,6 @@
-import type { DeviceTelemetry, TelemetrySample } from '../../../types';
+import type { Device, DeviceTelemetry, TelemetrySample } from '../../../types';
+import type { DeviceKind } from './types';
+import { getComponentRole } from './devices';
 import { normalizedTelemetryLabels, telemetryDisplayOrder, telemetryLabels } from './constants';
 
 export function formatDateTime(value?: string | number | null) {
@@ -28,17 +30,21 @@ export function normalizeTelemetryKey(key: string) {
   return key.replace(/[_\-\s]/g, '').toLowerCase();
 }
 
-export function getTelemetryUnit(key: string) {
+export function getTelemetryUnit(key: string, kind?: DeviceKind) {
   const normalizedKey = normalizeTelemetryKey(key);
-  if (normalizedKey === 'temperature') return '°C';
+  if (normalizedKey === 'currentposition' && kind === 'climate_control') return 'мм';
+  if (normalizedKey === 'currentposition' && kind === 'soil_irrigation') return '%';
+  if (normalizedKey === 'temperature' || normalizedKey === 'currenttemp') return '°C';
+  if (normalizedKey === 'currenthum') return '%';
+  if (normalizedKey === 'currentsoilmoisture') return '%';
   if (/humidity|moisture|position/i.test(normalizedKey)) return '%';
   if (normalizedKey === 'speed') return '%';
   return '';
 }
 
-export function formatVisualValue(key: string, value: unknown) {
+export function formatVisualValue(key: string, value: unknown, kind?: DeviceKind) {
   const normalizedKey = normalizeTelemetryKey(key);
-  if (/status|state|actuatoropen/.test(normalizedKey)) {
+  if (/status|state|actuatoropen|valveopen/.test(normalizedKey)) {
     const normalized = String(value).trim().toLowerCase();
     const stateLabels: Record<string, string> = {
       true: 'Открыто',
@@ -51,11 +57,14 @@ export function formatVisualValue(key: string, value: unknown) {
       closing: 'Закрывается',
       stop: 'Остановлено',
       stopped: 'Остановлено',
+      dry: 'Сухо',
+      optimal: 'Оптимально',
+      wet: 'Влажно',
     };
     if (stateLabels[normalized]) return stateLabels[normalized];
   }
   const formatted = formatTelemetryValue(value);
-  const unit = getTelemetryUnit(key);
+  const unit = getTelemetryUnit(key, kind);
   return unit && formatted !== 'Нет данных' ? `${formatted} ${unit}` : formatted;
 }
 
@@ -100,7 +109,8 @@ export function getTelemetryRows(telemetry?: DeviceTelemetry) {
 
   return Object.entries(telemetry.telemetry)
     .map(([key, samples]) => {
-      const latest = getLatestSample(samples || []);
+      const availableSamples = (samples || []).filter(hasTelemetryValue);
+      const latest = getLatestSample(availableSamples) || getLatestSample(samples || []);
       return latest ? { key, sample: latest } : null;
     })
     .filter((item): item is { key: string; sample: TelemetrySample } => Boolean(item))
@@ -120,6 +130,42 @@ export function getTelemetryRows(telemetry?: DeviceTelemetry) {
 
       return getTelemetryLabel(left.key).localeCompare(getTelemetryLabel(right.key), 'ru');
     });
+}
+
+const SENSOR_KEYS: Record<Exclude<DeviceKind, 'other'>, Set<string>> = {
+  climate_control: new Set(['currenttemp', 'currenthum', 'tempstatus', 'humstatus']),
+  soil_irrigation: new Set(['currentsoilmoisture', 'soilmoisturestatus']),
+};
+const ACTUATOR_KEYS = new Set(['currentposition', 'currentstate', 'actionack']);
+const CONTROL_KEYS = new Set(['method', 'params']);
+const SHARED_COMMAND_KEYS = new Set(['action']);
+
+export function filterTelemetryForSystem(
+  telemetry: DeviceTelemetry | undefined,
+  kind: DeviceKind,
+  devices: Device[]
+) {
+  if (!telemetry) return undefined;
+  const hasExplicitRoles = devices.some((device) => {
+    const metadata = device.metadata || device.device_metadata || {};
+    return typeof metadata.component_role === 'string';
+  });
+  const roles = new Set(devices.map(getComponentRole));
+  const filtered = Object.fromEntries(
+    Object.entries(telemetry.telemetry).filter(([key, samples]) => {
+      if (!samples.some(hasTelemetryValue)) return false;
+      if (kind === 'other' || !hasExplicitRoles) return true;
+      const normalized = normalizeTelemetryKey(key);
+      if (roles.has('sensor') && SENSOR_KEYS[kind].has(normalized)) return true;
+      if (roles.has('actuator') && ACTUATOR_KEYS.has(normalized)) return true;
+      if (
+        (roles.has('actuator') || roles.has('control')) &&
+        SHARED_COMMAND_KEYS.has(normalized)
+      ) return true;
+      return roles.has('control') && CONTROL_KEYS.has(normalized);
+    })
+  );
+  return { ...telemetry, telemetry: filtered };
 }
 
 export function getNumericTelemetrySummary(samples: TelemetrySample[]) {

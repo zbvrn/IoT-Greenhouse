@@ -3,6 +3,57 @@
   font-size: 0.85rem;
 }
 
+.my-device-settings__actuator {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.my-device-settings__parameters {
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  display: grid;
+  gap: 10px;
+  margin: 4px 0;
+  min-width: 0;
+  padding: 12px;
+}
+
+.my-device-settings__parameters legend {
+  color: var(--color-deep);
+  font-size: 0.9rem;
+  padding: 0 5px;
+}
+
+.my-device-settings__parameters > p {
+  color: var(--color-gray);
+  font-size: 0.84rem;
+  margin: 0;
+}
+
+.my-device-settings__actuator label {
+  display: grid;
+  gap: 7px;
+}
+
+.my-device-settings__actuator label > div {
+  align-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  overflow: hidden;
+}
+
+.my-device-settings__actuator label > div input {
+  border: 0;
+}
+
+.my-device-settings__actuator label > div span {
+  color: var(--color-gray);
+  padding: 0 11px;
+}
+
 .my-device-settings .my-form__field small {
   color: var(--color-gray);
 }
@@ -190,6 +241,17 @@
 }
 
 .my-device-form .my-form__hint {
+  grid-column: 1 / -1;
+}
+
+.my-device-system-fields {
+  display: grid;
+  gap: 12px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.my-device-system-fields__system {
   grid-column: 1 / -1;
 }
 

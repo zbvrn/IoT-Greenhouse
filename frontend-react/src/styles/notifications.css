@@ -8,6 +8,13 @@
   margin: 0 0 8px;
 }
 
+.notifications-page__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
 .notifications-page__header p,
 .notifications-empty p {
   color: var(--color-gray);

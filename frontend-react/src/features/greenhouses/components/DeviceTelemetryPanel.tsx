@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import Dropdown from '../../../components/ui/Dropdown';
 import type { Device, DeviceTelemetry, Greenhouse, TelemetrySample } from '../../../types';
-import { deviceKindLabels } from '../model/constants';
-import { getDeviceKind } from '../model/devices';
+import {
+  deviceKindLabels,
+  getComponentRoleLabel,
+  getTelemetryLabelForKind,
+} from '../model/constants';
+import { getComponentRole, getDeviceKind } from '../model/devices';
 import { getFriendlyError } from '../model/errors';
 import {
   formatDateTime,
+  filterTelemetryForSystem,
   formatVisualValue,
   getNumericTelemetrySummary,
-  getTelemetryLabel,
   getTelemetryRows,
   getTelemetryUnit,
   hasTelemetryValue,
@@ -21,7 +25,28 @@ function formatNumericValue(value: number) {
   return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value);
 }
 
-function TelemetryHistory({ telemetry }: { telemetry: DeviceTelemetry }) {
+function ExpandableTelemetryValue({ telemetryKey, value, kind }: { telemetryKey: string; value: unknown; kind: DeviceKind }) {
+  const [expanded, setExpanded] = useState(false);
+  const formatted = formatVisualValue(telemetryKey, value, kind);
+  const canExpand = formatted.length > 24;
+  return (
+    <span className={`my-telemetry-value${expanded ? ' is-expanded' : ''}`}>
+      <span>{formatted}</span>
+      {canExpand && (
+        <button
+          aria-label={expanded ? 'Свернуть значение' : 'Показать значение полностью'}
+          title={expanded ? 'Свернуть' : 'Показать полностью'}
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+        >
+          {expanded ? 'Свернуть' : '…'}
+        </button>
+      )}
+    </span>
+  );
+}
+
+function TelemetryHistory({ telemetry, kind }: { telemetry: DeviceTelemetry; kind: DeviceKind }) {
   const keys = useMemo(
     () => Object.keys(telemetry.telemetry).filter((key) => telemetry.telemetry[key]?.length),
     [telemetry]
@@ -41,7 +66,7 @@ function TelemetryHistory({ telemetry }: { telemetry: DeviceTelemetry }) {
   );
   const hasValues = samples.some(hasTelemetryValue);
   const summary = getNumericTelemetrySummary(samples);
-  const unit = getTelemetryUnit(selectedKey);
+  const unit = getTelemetryUnit(selectedKey, kind);
   const chartWidth = 720;
   const chartHeight = 270;
   const chartLeft = 68;
@@ -109,7 +134,7 @@ function TelemetryHistory({ telemetry }: { telemetry: DeviceTelemetry }) {
             onChange={setSelectedKey}
             placeholder="Выберите показатель"
             inlineMenu
-            options={keys.map((key) => ({ value: key, label: getTelemetryLabel(key) }))}
+            options={keys.map((key) => ({ value: key, label: getTelemetryLabelForKind(kind, key) }))}
           />
         </div>
         <span>Доступно значений: {samples.length}</span>
@@ -127,9 +152,9 @@ function TelemetryHistory({ telemetry }: { telemetry: DeviceTelemetry }) {
               </strong>
             </div>
           </div>
-          <div className="my-history__chart" aria-label={`График: ${getTelemetryLabel(selectedKey)}`}>
+          <div className="my-history__chart" aria-label={`График: ${getTelemetryLabelForKind(kind, selectedKey)}`}>
             <svg role="img" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
-              <title>История показателя «{getTelemetryLabel(selectedKey)}»</title>
+              <title>История показателя «{getTelemetryLabelForKind(kind, selectedKey)}»</title>
               {yTicks.map((tick) => (
                 <g key={tick.y}>
                   <line
@@ -171,7 +196,7 @@ function TelemetryHistory({ telemetry }: { telemetry: DeviceTelemetry }) {
                 x={16}
                 y={chartTop + plotHeight / 2}
               >
-                {getTelemetryLabel(selectedKey)}{unit ? `, ${unit}` : ''}
+                {getTelemetryLabelForKind(kind, selectedKey)}{unit ? `, ${unit}` : ''}
               </text>
               <text className="my-history__axis-title" textAnchor="middle" x={chartLeft + plotWidth / 2} y={chartHeight - 7}>
                 Время
@@ -199,7 +224,7 @@ function TelemetryHistory({ telemetry }: { telemetry: DeviceTelemetry }) {
               {[...samples].reverse().filter(hasTelemetryValue).map((sample, index) => (
                 <tr key={`${sample.ts}-${index}`}>
                   <td>{formatDateTime(sample.ts)}</td>
-                  <td>{formatVisualValue(selectedKey, sample.value)}</td>
+                  <td>{formatVisualValue(selectedKey, sample.value, kind)}</td>
                 </tr>
               ))}
             </tbody>
@@ -215,7 +240,7 @@ type TelemetryRow = {
   sample: TelemetrySample;
 };
 
-function DeviceScreen({ rows, compact = false }: { rows: TelemetryRow[]; compact?: boolean }) {
+function DeviceScreen({ rows, kind, compact = false }: { rows: TelemetryRow[]; kind: DeviceKind; compact?: boolean }) {
   const visibleRows = [...rows].sort(
     (left, right) => Number(hasTelemetryValue(right.sample)) - Number(hasTelemetryValue(left.sample))
   );
@@ -228,8 +253,8 @@ function DeviceScreen({ rows, compact = false }: { rows: TelemetryRow[]; compact
       {visibleRows.length ? (
         visibleRows.map(({ key, sample }) => (
           <div className="my-device-render__screen-row" key={key}>
-            <span>{getTelemetryLabel(key)}</span>
-            <strong>{formatVisualValue(key, sample.value)}</strong>
+            <span>{getTelemetryLabelForKind(kind, key)}</span>
+            <strong>{formatVisualValue(key, sample.value, kind)}</strong>
           </div>
         ))
       ) : (
@@ -240,36 +265,40 @@ function DeviceScreen({ rows, compact = false }: { rows: TelemetryRow[]; compact
 }
 
 function DeviceControls({
+  kind,
   pendingCommand,
   onCommand,
 }: {
+  kind: DeviceKind;
   pendingCommand: string;
   onCommand: (command: DeviceCommand) => void;
 }) {
+  const middleCommand: DeviceCommand = 'stop';
+  const middleLabel = kind === 'soil_irrigation' ? 'Остановить клапан' : 'Остановить';
   return (
     <div className="my-device-render__controls" aria-label="Управление устройством">
       <button
-        aria-label="Открыть"
+        aria-label={kind === 'soil_irrigation' ? 'Открыть клапан' : 'Открыть форточку'}
         disabled={Boolean(pendingCommand)}
-        title="Открыть"
+        title={kind === 'soil_irrigation' ? 'Открыть клапан' : 'Открыть форточку'}
         type="button"
         onClick={() => onCommand('open')}
       >
         <span aria-hidden="true">↑</span>
       </button>
       <button
-        aria-label="Стоп"
+        aria-label={middleLabel}
         disabled={Boolean(pendingCommand)}
-        title="Стоп"
+        title={middleLabel}
         type="button"
-        onClick={() => onCommand('stop')}
+        onClick={() => onCommand(middleCommand)}
       >
         <span aria-hidden="true">■</span>
       </button>
       <button
-        aria-label="Закрыть"
+        aria-label={kind === 'soil_irrigation' ? 'Закрыть клапан' : 'Закрыть форточку'}
         disabled={Boolean(pendingCommand)}
-        title="Закрыть"
+        title={kind === 'soil_irrigation' ? 'Закрыть клапан' : 'Закрыть форточку'}
         type="button"
         onClick={() => onCommand('close')}
       >
@@ -282,15 +311,16 @@ function DeviceControls({
 function DeviceIllustration({
   kind,
   rows,
+  canControl,
   pendingCommand,
   onCommand,
 }: {
   kind: DeviceKind;
   rows: TelemetryRow[];
+  canControl: boolean;
   pendingCommand: string;
   onCommand: (command: DeviceCommand) => void;
 }) {
-  const canControl = kind === 'actuator' || kind === 'valve';
   return (
     <div className={`my-device-render my-device-render--other${canControl ? ' has-controls' : ''}`}>
       <div className="my-device-render__antenna" />
@@ -299,80 +329,24 @@ function DeviceIllustration({
           <span className="my-device-render__model">Умная теплица</span>
           <span className="my-device-render__type">{deviceKindLabels[kind]}</span>
         </div>
-        <DeviceScreen rows={rows} />
-        {canControl && <DeviceControls pendingCommand={pendingCommand} onCommand={onCommand} />}
+        <DeviceScreen rows={rows} kind={kind} />
+        {canControl && (
+          <DeviceControls kind={kind} pendingCommand={pendingCommand} onCommand={onCommand} />
+        )}
         <div className="my-device-render__connectors"><i /><i /><i /></div>
       </div>
     </div>
   );
 }
 
-function DeviceVisual({
-  device,
-  kind,
-  rows,
-  telemetry,
-  pendingCommand,
-  feedback,
-  error,
-  onCommand,
-  onDismissError,
-}: {
-  device: Device;
-  kind: DeviceKind;
-  rows: TelemetryRow[];
-  telemetry?: DeviceTelemetry;
-  pendingCommand: string;
-  feedback: string;
-  error: string;
-  onCommand: (command: DeviceCommand) => void;
-  onDismissError: () => void;
-}) {
-  return (
-    <div className="my-device-visual-modal">
-      <div className="my-device-visual-stage">
-        <DeviceIllustration
-          kind={kind}
-          rows={rows}
-          pendingCommand={pendingCommand}
-          onCommand={onCommand}
-        />
-      </div>
-      <div className="my-device-visual-details">
-        <div>
-          <span>{deviceKindLabels[kind]}</span>
-          <h3>{device.name}</h3>
-          <p>Номер устройства: {device.serial_number}</p>
-          <time>{telemetry ? `Получено: ${formatDateTime(telemetry.retrieved_at)}` : 'Данные ещё не получены'}</time>
-        </div>
-        {rows.length ? (
-          <dl>
-            {rows.map(({ key, sample }) => (
-              <div key={key}>
-                <dt>{getTelemetryLabel(key)}</dt>
-                <dd>{formatVisualValue(key, sample.value)}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : (
-          <p className="my-inline-warning">Показаний для визуального представления пока нет.</p>
-        )}
-      </div>
-      {feedback && <p className="form-success my-device-visual-feedback">{feedback}</p>}
-      {error && (
-        <div className="my-device-visual-toast" role="alert">
-          <span>{error}</span>
-          <button aria-label="Закрыть сообщение" title="Закрыть" type="button" onClick={onDismissError}>
-            ×
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function DeviceTelemetryPanel({
   device,
+  displayName,
+  componentCount = 1,
+  commandDevice,
+  systemDevices,
+  onRenameSystem,
+  onConfigureActuator,
   telemetry,
   telemetryError,
   onCommand,
@@ -381,6 +355,16 @@ export function DeviceTelemetryPanel({
   onDelete,
 }: {
   device: Device;
+  displayName?: string;
+  componentCount?: number;
+  commandDevice?: Device;
+  systemDevices?: Device[];
+  onRenameSystem?: (name: string) => Promise<void>;
+  onConfigureActuator?: (settings: {
+    strokeLength?: number;
+    strokeSpeed?: number;
+    valveOpenPercent?: number;
+  }) => Promise<void>;
   telemetry?: DeviceTelemetry;
   telemetryError?: string;
   onCommand: (device: Device, command: DeviceCommand) => Promise<void>;
@@ -388,23 +372,36 @@ export function DeviceTelemetryPanel({
   onUpdate: (device: Device, payload: DeviceUpdatePayload) => Promise<void>;
   onDelete: (device: Device) => Promise<void>;
 }) {
-  const rows = getTelemetryRows(telemetry);
   const kind = getDeviceKind(device);
-  const canControl = kind === 'actuator' || kind === 'valve';
+  const visibleTelemetry = filterTelemetryForSystem(
+    telemetry,
+    kind,
+    systemDevices || [device]
+  );
+  const rows = getTelemetryRows(visibleTelemetry);
+  const canControl =
+    kind !== 'other' &&
+    (systemDevices ? Boolean(commandDevice) : Boolean(commandDevice || device));
+  const finalCommand: DeviceCommand = 'stop';
+  const openLabel = kind === 'soil_irrigation' ? 'Открыть клапан' : 'Открыть форточку';
+  const closeLabel = kind === 'soil_irrigation' ? 'Закрыть клапан' : 'Закрыть форточку';
+  const finalLabel = kind === 'soil_irrigation' ? 'Остановить клапан' : 'Остановить привод';
   const [pendingCommand, setPendingCommand] = useState('');
   const [feedback, setFeedback] = useState('');
   const [error, setError] = useState('');
-  const [isVisualOpen, setIsVisualOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [systemName, setSystemName] = useState(displayName || device.name);
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const handleCommand = async (command: DeviceCommand) => {
     setPendingCommand(command);
     setFeedback('');
     setError('');
     try {
-      await onCommand(device, command);
+      await onCommand(commandDevice || device, command);
       setFeedback('Команда отправлена устройству.');
     } catch (commandError) {
       setError(getFriendlyError(commandError, 'Попробуйте позже: команду не удалось отправить.'));
@@ -418,15 +415,12 @@ export function DeviceTelemetryPanel({
       <header>
         <div>
           <span>{deviceKindLabels[kind]}</span>
-          <h3>{device.name}</h3>
-          <p>{device.serial_number}</p>
+          <h3>{displayName || device.name}</h3>
+          <p>{componentCount > 1 ? `Компонентов в системе: ${componentCount}` : device.serial_number}</p>
         </div>
         <div className="my-device-card__header-actions">
           <time>{telemetry ? `Получено: ${formatDateTime(telemetry.retrieved_at)}` : 'нет данных'}</time>
           <div>
-            <button className="secondary-action" type="button" onClick={() => setIsVisualOpen(true)}>
-              Визуальное представление
-            </button>
             <button className="secondary-action" type="button" disabled={!telemetry || !rows.length} onClick={() => setIsHistoryOpen(true)}>
               История показаний
             </button>
@@ -437,18 +431,28 @@ export function DeviceTelemetryPanel({
         </div>
       </header>
 
+      <div className="my-device-card__visual">
+        <DeviceIllustration
+          kind={kind}
+          rows={rows}
+          canControl={canControl}
+          pendingCommand={pendingCommand}
+          onCommand={handleCommand}
+        />
+      </div>
+
       {telemetryError ? (
         <p className="my-inline-warning">{telemetryError}</p>
       ) : rows.length ? (
         <dl className="my-telemetry-grid">
           {rows.map(({ key, sample }) => (
             <div key={key}>
-              <dt>{getTelemetryLabel(key)}</dt>
-              <dd>{formatVisualValue(key, sample.value)}</dd>
+              <dt>{getTelemetryLabelForKind(kind, key)}</dt>
+              <dd><ExpandableTelemetryValue telemetryKey={key} value={sample.value} kind={kind} /></dd>
               {(() => {
-                const summary = getNumericTelemetrySummary(telemetry?.telemetry[key] || []);
+                const summary = getNumericTelemetrySummary(visibleTelemetry?.telemetry[key] || []);
                 if (!summary) return null;
-                const unit = getTelemetryUnit(key);
+                const unit = getTelemetryUnit(key, kind);
                 return (
                   <span className="my-telemetry-grid__summary">
                     {summary.trend === 'up' ? 'Растет ↑' : summary.trend === 'down' ? 'Снижается ↓' : 'Без изменений'}
@@ -471,7 +475,7 @@ export function DeviceTelemetryPanel({
             disabled={Boolean(pendingCommand)}
             onClick={() => handleCommand('open')}
           >
-            {pendingCommand === 'open' ? 'Отправляем...' : 'Открыть'}
+            {pendingCommand === 'open' ? 'Отправляем...' : openLabel}
           </button>
           <button
             className="secondary-action"
@@ -479,62 +483,129 @@ export function DeviceTelemetryPanel({
             disabled={Boolean(pendingCommand)}
             onClick={() => handleCommand('close')}
           >
-            {pendingCommand === 'close' ? 'Отправляем...' : 'Закрыть'}
+            {pendingCommand === 'close' ? 'Отправляем...' : closeLabel}
           </button>
           <button
             className="secondary-action"
             type="button"
             disabled={Boolean(pendingCommand)}
-            onClick={() => handleCommand('stop')}
+            onClick={() => handleCommand(finalCommand)}
           >
-            {pendingCommand === 'stop' ? 'Отправляем...' : 'Стоп'}
+            {pendingCommand === finalCommand ? 'Отправляем...' : finalLabel}
           </button>
         </div>
       )}
-      {feedback && !isVisualOpen && <p className="form-success">{feedback}</p>}
-      {error && !isVisualOpen && <p className="form-error">{error}</p>}
-      {isVisualOpen && (
-        <Modal title="Визуальное представление" size="wide" onClose={() => setIsVisualOpen(false)}>
-          <DeviceVisual
-            device={device}
-            kind={kind}
-            rows={rows}
-            telemetry={telemetry}
-            pendingCommand={pendingCommand}
-            feedback={feedback}
-            error={error}
-            onCommand={handleCommand}
-            onDismissError={() => setError('')}
-          />
-        </Modal>
+      {feedback && <p className="form-success">{feedback}</p>}
+      {error && (
+        <div className="my-device-visual-toast" role="alert">
+          <span>{error}</span>
+          <button
+            aria-label="Закрыть сообщение"
+            title="Закрыть"
+            type="button"
+            onClick={() => setError('')}
+          >
+            ×
+          </button>
+        </div>
       )}
-      {isHistoryOpen && telemetry && (
-        <Modal title={`История: ${device.name}`} size="history" onClose={() => setIsHistoryOpen(false)}>
-          <TelemetryHistory telemetry={telemetry} />
+      {isHistoryOpen && visibleTelemetry && (
+        <Modal title={`История: ${displayName || device.name}`} size="history" onClose={() => setIsHistoryOpen(false)}>
+          <TelemetryHistory telemetry={visibleTelemetry} kind={kind} />
         </Modal>
       )}
       {isSettingsOpen && (
-        <Modal title="Настроить устройство" size="wide" onClose={() => setIsSettingsOpen(false)}>
-          <DeviceSettingsForm
-            device={device}
-            greenhouses={greenhouses}
-            onSave={async (currentDevice, payload) => {
-              await onUpdate(currentDevice, payload);
-              setIsSettingsOpen(false);
-            }}
-            onRequestDelete={() => setIsDeleteConfirmOpen(true)}
-          />
+        <Modal title="Настройки системы" size="wide" onClose={() => setIsSettingsOpen(false)}>
+          <div className="my-system-settings">
+            {onRenameSystem && (
+              <form
+                className="my-system-settings__name"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (!systemName.trim()) return;
+                  setIsRenaming(true);
+                  try {
+                    await onRenameSystem(systemName.trim());
+                  } finally {
+                    setIsRenaming(false);
+                  }
+                }}
+              >
+                <label>
+                  <span>Название системы *</span>
+                  <input value={systemName} onChange={(event) => setSystemName(event.target.value)} />
+                </label>
+                <button type="submit" disabled={isRenaming || !systemName.trim()}>
+                  {isRenaming ? 'Сохраняем...' : 'Переименовать'}
+                </button>
+              </form>
+            )}
+            <section className="my-system-components" aria-label="Устройства системы">
+              <h3>Устройства системы</h3>
+              <ul>
+                {(systemDevices || [device]).map((component) => (
+                  <li
+                    key={component.id}
+                    className={selectedDevice?.id === component.id ? 'is-selected' : ''}
+                  >
+                    <div>
+                      <span>{component.name}</span>
+                      <small>
+                        {getComponentRoleLabel(kind, getComponentRole(component))} · {component.serial_number}
+                      </small>
+                    </div>
+                    <button className="secondary-action" type="button" onClick={() => setSelectedDevice(component)}>
+                      Настроить
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+            {selectedDevice && (
+              <section className="my-system-settings__device">
+                <h3>Настройка: {selectedDevice.name}</h3>
+                <DeviceSettingsForm
+                  device={selectedDevice}
+                  greenhouses={greenhouses}
+                  lockAssignment
+                  onSave={async (currentDevice, payload) => {
+                    await onUpdate(currentDevice, payload);
+                    if (
+                      getComponentRole(currentDevice) === 'actuator' &&
+                      onConfigureActuator &&
+                      payload.strokeLength !== undefined &&
+                      payload.strokeSpeed !== undefined
+                    ) {
+                      await onConfigureActuator({
+                        strokeLength: payload.strokeLength,
+                        strokeSpeed: payload.strokeSpeed,
+                      });
+                    }
+                    if (
+                      getComponentRole(currentDevice) === 'actuator' &&
+                      onConfigureActuator &&
+                      payload.valveOpenPercent !== undefined
+                    ) {
+                      await onConfigureActuator({ valveOpenPercent: payload.valveOpenPercent });
+                    }
+                    setSelectedDevice(null);
+                  }}
+                  onRequestDelete={() => setIsDeleteConfirmOpen(true)}
+                />
+              </section>
+            )}
+          </div>
         </Modal>
       )}
       {isDeleteConfirmOpen && (
         <Modal title="Удалить устройство" size="compact" onClose={() => setIsDeleteConfirmOpen(false)}>
           <DeleteDeviceConfirm
-            device={device}
+            device={selectedDevice || device}
             onCancel={() => setIsDeleteConfirmOpen(false)}
             onConfirm={async () => {
-              await onDelete(device);
+              await onDelete(selectedDevice || device);
               setIsDeleteConfirmOpen(false);
-              setIsSettingsOpen(false);
+              setSelectedDevice(null);
             }}
           />
         </Modal>

@@ -6,14 +6,21 @@ export type ModalName =
   | 'device-add-menu'
   | null;
 
-export type DeviceKind = 'sensor' | 'soil_sensor' | 'actuator' | 'valve' | 'other';
+export type DeviceKind = 'soil_irrigation' | 'climate_control' | 'other';
+export type DeviceComponentRole = 'sensor' | 'actuator' | 'control' | 'standalone';
 export type DeviceKindFilter = DeviceKind | 'all';
-export type DeviceCommand = 'open' | 'close' | 'stop';
+export type DeviceCommand = 'open' | 'close' | 'stop' | 'off';
 
 export type DeviceUpdatePayload = {
   name: string;
   kind: DeviceKind;
   greenhouseId?: number;
+  strokeLength?: number;
+  strokeSpeed?: number;
+  valveOpenPercent?: number;
+  componentRole?: DeviceComponentRole;
+  systemId?: string;
+  systemName?: string;
 };
 
 export type FieldErrors = {

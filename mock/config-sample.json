@@ -1,10 +1,49 @@
 {
   "api_base_url": "http://81.177.135.202:5010/api/v1",
-  "interval": 10,
+  "telemetry_interval_seconds": 10,
+  "movement_interval_seconds": 1,
+  "rpc_timeout_seconds": 30,
   "request_timeout_seconds": 5,
-  "devices": [
-    "token-1",
-    "token-2",
-    "token-3"
+  "systems": [
+    {
+      "name": "climate-system-1",
+      "type": "climate",
+      "sensor": {
+        "token": "sensor-access-token",
+        "temperature": 24,
+        "humidity": 55,
+        "variation": 0.3
+      },
+      "control": {
+        "token": "control-access-token"
+      },
+      "actuator": {
+        "token": "actuator-access-token",
+        "strokeLength": 250,
+        "strokeSpeed": 3,
+        "initialPosition": 0
+      }
+    },
+    {
+      "name": "irrigation-system-1",
+      "type": "irrigation",
+      "sensor": {
+        "token": "soil-sensor-access-token",
+        "soilMoisture": 45,
+        "moistureMin": 35,
+        "moistureMax": 65,
+        "wateringRate": 2,
+        "dryingRate": 0.5
+      },
+      "control": {
+        "token": "irrigation-control-access-token"
+      },
+      "actuator": {
+        "token": "irrigation-valve-access-token",
+        "valveOpenPercent": 100,
+        "valveSpeed": 20,
+        "initialPosition": 0
+      }
+    }
   ]
 }

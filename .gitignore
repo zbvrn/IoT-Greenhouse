@@ -1,0 +1,4 @@
+mock/config.json
+mock/__pycache__/
+backend/.env
+frontend/.env

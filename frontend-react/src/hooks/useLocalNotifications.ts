@@ -59,6 +59,25 @@ function getLatestTelemetryTimestamps(telemetry: DeviceTelemetry) {
   return latestByKey;
 }
 
+const NOTIFIABLE_TELEMETRY_KEYS = new Set([
+  'temperature',
+  'currenttemp',
+  'humidity',
+  'currenthum',
+  'soilhumidity',
+  'soilmoisture',
+  'moisture',
+  'currentsoilmoisture',
+]);
+
+function getNotifiableTimestamps(timestamps: DeviceTelemetryTimestamps) {
+  return Object.fromEntries(
+    Object.entries(timestamps).filter(([key]) =>
+      NOTIFIABLE_TELEMETRY_KEYS.has(key.replace(/[_\-\s]/g, '').toLowerCase())
+    )
+  );
+}
+
 function hasNewTelemetry(
   current: DeviceTelemetryTimestamps,
   previous?: number | DeviceTelemetryTimestamps
@@ -155,7 +174,7 @@ export function useLocalNotifications({
     setNotifications(next);
   }, [notificationsKey, userKey, welcomeKey, welcomePendingKey]);
 
-  const scanTelemetry = useCallback(async () => {
+  const scanTelemetry = useCallback(async (createNotifications = false) => {
     if (!userKey || !token || isScanRunning.current) return;
     isScanRunning.current = true;
 
@@ -187,7 +206,8 @@ export function useLocalNotifications({
 
         const previousTimestamps = timestamps[String(device.id)];
         if (
-          hasNewTelemetry(latestTimestamps, previousTimestamps) &&
+          createNotifications &&
+          hasNewTelemetry(getNotifiableTimestamps(latestTimestamps), previousTimestamps) &&
           device.greenhouse_id != null
         ) {
           const greenhouseName = greenhouseNames.get(device.greenhouse_id) || 'Теплица';
@@ -227,12 +247,16 @@ export function useLocalNotifications({
   }, [isNotificationsOpen, onAuthExpired, timestampsKey, token, updateNotifications, userKey]);
 
   useEffect(() => {
-    scanTelemetry();
-    const intervalId = window.setInterval(scanTelemetry, 120000);
-    window.addEventListener('focus', scanTelemetry);
+    scanTelemetry(true);
+    const baselineScan = () => {
+      if (!document.hidden) scanTelemetry(false);
+    };
+    const focusedScan = () => scanTelemetry(true);
+    const intervalId = window.setInterval(baselineScan, 120000);
+    window.addEventListener('focus', focusedScan);
     return () => {
       window.clearInterval(intervalId);
-      window.removeEventListener('focus', scanTelemetry);
+      window.removeEventListener('focus', focusedScan);
     };
   }, [scanTelemetry]);
 
@@ -248,9 +272,14 @@ export function useLocalNotifications({
     [updateNotifications]
   );
 
+  const clearNotifications = useCallback(() => {
+    updateNotifications(() => []);
+  }, [updateNotifications]);
+
   return {
     notifications,
     unreadCount: notifications.filter((item) => !item.read).length,
     deleteNotification,
+    clearNotifications,
   };
 }

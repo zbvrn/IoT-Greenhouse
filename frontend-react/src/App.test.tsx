@@ -154,8 +154,8 @@ test('resets the device type filter when another greenhouse is opened', async ()
   render(<App />);
   await screen.findByRole('heading', { name: 'Первая теплица' });
   fireEvent.click(screen.getByRole('combobox'));
-  fireEvent.click(screen.getByRole('option', { name: 'Другое устройство' }));
-  expect(screen.getByRole('combobox')).toHaveTextContent('Другое устройство');
+  fireEvent.click(screen.getByRole('option', { name: 'Отдельное устройство' }));
+  expect(screen.getByRole('combobox')).toHaveTextContent('Отдельное устройство');
 
   window.location.hash = '#/my-greenhouses/2';
   fireEvent(window, new HashChangeEvent('hashchange'));
@@ -164,7 +164,7 @@ test('resets the device type filter when another greenhouse is opened', async ()
   await waitFor(() => expect(screen.getByRole('combobox')).toHaveTextContent('Все'));
 });
 
-test('opens a live visual representation for a greenhouse device', async () => {
+test('renders a controllable device with automation and telemetry history', async () => {
   localStorage.setItem('access_token', 'demo-token');
   localStorage.setItem('user', JSON.stringify({ id: 1, email: 'user@mail.com' }));
   window.location.hash = '#/my-greenhouses/1';
@@ -200,7 +200,13 @@ test('opens a live visual representation for a greenhouse device', async () => {
             serial_number: 'ACT-001',
             is_active: true,
             last_seen: null,
-            metadata: { device_type: 'actuator' },
+            metadata: {
+              device_type: 'climate_control',
+              sensor_type: 'temperature',
+              actuator_type: 'linear_actuator',
+              strokeLength: 250,
+              strokeSpeed: 3,
+            },
             greenhouse_id: 1,
             user_id: 1,
           },
@@ -270,9 +276,14 @@ test('opens a live visual representation for a greenhouse device', async () => {
   render(<App />);
 
   const historyButton = await screen.findByRole('button', { name: 'История показаний' });
-  expect(screen.getByRole('heading', { name: 'Автоматизация температуры' })).toBeInTheDocument();
-  expect(screen.getByRole('switch', { name: 'Автоматический режим' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Сохранить настройки' })).toBeDisabled();
+  expect(screen.getByRole('heading', { name: 'Автоматизация микроклимата' })).toBeInTheDocument();
+  const automationSwitch = screen.getByRole('switch', {
+    name: 'Автоматический режим: Управление температурой',
+  });
+  expect(automationSwitch).toBeEnabled();
+  fireEvent.click(automationSwitch);
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить настройки' }));
+  expect(await screen.findByText('Настройки сохранены и отправлены системе.')).toBeInTheDocument();
   const metricLabels = Array.from(document.querySelectorAll('.my-telemetry-grid dt')).map(
     (element) => element.textContent
   );
@@ -285,28 +296,25 @@ test('opens a live visual representation for a greenhouse device', async () => {
   expect(within(historyDialog).getByText('Растет ↑')).toBeInTheDocument();
   expect(within(historyDialog).getByTitle('История показателя «Положение форточки»')).toBeInTheDocument();
   fireEvent.click(within(historyDialog).getByRole('combobox'));
-  fireEvent.click(within(historyDialog).getByRole('option', { name: 'Температура' }));
-  expect(within(historyDialog).getByText('Для этого показателя пока нет полученных значений.')).toBeInTheDocument();
-  expect(within(historyDialog).queryByRole('table')).not.toBeInTheDocument();
+  expect(within(historyDialog).queryByRole('option', { name: 'Температура' })).not.toBeInTheDocument();
   fireEvent.click(historyDialog.querySelector('.my-modal__header button') as HTMLButtonElement);
 
-  const visualButton = await screen.findByRole('button', { name: 'Визуальное представление' });
-  fireEvent.click(visualButton);
-
-  const dialog = screen.getByRole('dialog');
-  expect(within(dialog).getByText('Умная теплица')).toBeInTheDocument();
-  const deviceCase = dialog.querySelector('.my-device-render__rugged-case');
+  expect(screen.queryByRole('button', { name: 'Визуальное представление' })).not.toBeInTheDocument();
+  const deviceCase = document.querySelector('.my-device-render__rugged-case');
   expect(deviceCase).not.toBeNull();
-  expect(within(deviceCase as HTMLElement).getByText('Привод форточки')).toBeInTheDocument();
-  expect(within(dialog).getAllByText('65 %').length).toBeGreaterThan(0);
-  expect(within(dialog).getAllByText('Открыто').length).toBeGreaterThan(0);
+  expect(within(deviceCase as HTMLElement).getByText('Умная теплица')).toBeInTheDocument();
+  expect(
+    within(deviceCase as HTMLElement).getByText('Система контроля температуры и форточки')
+  ).toBeInTheDocument();
+  expect(screen.getAllByText('65 %').length).toBeGreaterThan(0);
+  expect(screen.getAllByText('Открыто').length).toBeGreaterThan(0);
 
-  const deviceScreen = dialog.querySelector('.my-device-render__screen');
+  const deviceScreen = document.querySelector('.my-device-render__screen');
   expect(deviceScreen).not.toBeNull();
   expect(within(deviceScreen as HTMLElement).getByText('Положение форточки')).toBeInTheDocument();
   expect(within(deviceScreen as HTMLElement).getByText('Состояние привода')).toBeInTheDocument();
 
-  fireEvent.click(within(dialog).getByRole('button', { name: 'Открыть' }));
+  fireEvent.click(within(deviceCase as HTMLElement).getByRole('button', { name: 'Открыть форточку' }));
   await screen.findByText('Команда отправлена устройству.');
   expect(global.fetch).toHaveBeenCalledWith(
     '/api/rpc/12',
@@ -316,20 +324,22 @@ test('opens a live visual representation for a greenhouse device', async () => {
     })
   );
 
-  const deviceControls = within(dialog).getByLabelText('Управление устройством');
-  fireEvent.click(within(deviceControls).getByRole('button', { name: 'Закрыть' }));
-  const commandAlert = await within(dialog).findByRole('alert');
+  const deviceControls = within(deviceCase as HTMLElement).getByLabelText('Управление устройством');
+  fireEvent.click(within(deviceControls).getByRole('button', { name: 'Закрыть форточку' }));
+  const commandAlert = await screen.findByRole('alert');
   expect(commandAlert).toHaveTextContent('Попробуйте позже: сейчас не удалось связаться');
   fireEvent.click(within(commandAlert).getByRole('button', { name: 'Закрыть сообщение' }));
-  expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
-  fireEvent.click(dialog.querySelector('.my-modal__header button') as HTMLButtonElement);
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: 'Настроить' }));
   const settingsDialog = screen.getByRole('dialog');
-  expect(within(settingsDialog).getByText('Выберите назначение, указанное в паспорте или на самом устройстве.')).toBeInTheDocument();
+  fireEvent.click(within(settingsDialog).getByRole('button', { name: 'Настроить' }));
   const nameInput = within(settingsDialog).getByLabelText('Название устройства *');
+  expect(within(settingsDialog).getByLabelText('Ход привода')).toHaveValue(250);
+  expect(within(settingsDialog).getByLabelText('Скорость привода')).toHaveValue(3);
   fireEvent.change(nameInput, { target: { value: 'Привод у входа' } });
   fireEvent.click(within(settingsDialog).getByRole('button', { name: 'Сохранить' }));
+  fireEvent.click(within(settingsDialog).getByRole('button', { name: 'Закрыть' }));
   await screen.findByRole('heading', { name: 'Привод у входа' });
   expect(global.fetch).toHaveBeenCalledWith(
     '/api/devices/12',
@@ -338,6 +348,7 @@ test('opens a live visual representation for a greenhouse device', async () => {
 
   fireEvent.click(screen.getByRole('button', { name: 'Настроить' }));
   const deleteDialog = screen.getByRole('dialog');
+  fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Настроить' }));
   fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Удалить устройство' }));
   const openDialogs = screen.getAllByRole('dialog');
   const confirmationDialog = openDialogs[openDialogs.length - 1];

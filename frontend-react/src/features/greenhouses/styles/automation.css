@@ -33,6 +33,14 @@
   padding: 18px;
 }
 
+.my-automation-section {
+  border: 1px solid var(--color-line);
+  border-radius: 7px;
+  display: grid;
+  gap: 18px;
+  padding: 16px;
+}
+
 .my-automation-switch {
   align-items: center;
   display: flex;
@@ -70,6 +78,20 @@
   opacity: 0;
   position: absolute;
   width: 1px;
+}
+
+.my-automation-switch__control input:focus-visible + i {
+  outline: 2px solid #71965d;
+  outline-offset: 2px;
+}
+
+.my-automation-switch__control input:checked + i {
+  background: #71965d;
+  border-color: #5d814b;
+}
+
+.my-automation-switch__control input:checked + i::after {
+  left: 21px;
 }
 
 .my-automation-switch__control i {
@@ -122,9 +144,9 @@
 }
 
 .my-automation-fields input {
-  background: #f5f7f5;
+  background: var(--color-white);
   border: 0;
-  color: var(--color-gray);
+  color: var(--color-deep);
   font: inherit;
   min-height: 40px;
   padding: 0 11px;
@@ -161,8 +183,14 @@
 .my-automation-panel footer {
   border-top: 1px solid var(--color-line);
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  justify-content: space-between;
   padding: 13px 18px;
+}
+
+.my-automation-panel footer .form-success {
+  margin: 0;
 }
 
 .my-panel-action {

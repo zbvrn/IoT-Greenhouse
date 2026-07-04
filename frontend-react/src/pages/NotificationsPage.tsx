@@ -3,18 +3,26 @@ import type { LocalNotification } from '../hooks/useLocalNotifications';
 type Props = {
   notifications: LocalNotification[];
   onDelete: (id: string) => void;
+  onDeleteAll: () => void;
 };
 
 function formatNotificationTime(value: number) {
   return new Date(value).toLocaleString('ru-RU');
 }
 
-function NotificationsPage({ notifications, onDelete }: Props) {
+function NotificationsPage({ notifications, onDelete, onDeleteAll }: Props) {
   return (
     <section className="notifications-page">
       <header className="notifications-page__header">
-        <h1>Уведомления</h1>
-        <p>Здесь сохраняются сообщения о новых данных устройств.</p>
+        <div>
+          <h1>Уведомления</h1>
+          <p>Здесь сохраняются сообщения о новых данных устройств.</p>
+        </div>
+        {notifications.length > 0 && (
+          <button className="secondary-action" type="button" onClick={onDeleteAll}>
+            Удалить все
+          </button>
+        )}
       </header>
 
       {notifications.length ? (

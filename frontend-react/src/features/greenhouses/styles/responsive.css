@@ -1,4 +1,8 @@
 @media (max-width: 980px) {
+  .my-device-visual-toast {
+    left: 50%;
+  }
+
   .my-grid {
     grid-template-columns: 1fr;
   }
@@ -45,7 +49,8 @@
   }
 
   .my-automation-fields,
-  .my-automation-thresholds {
+  .my-automation-thresholds,
+  .my-device-settings__actuator {
     grid-template-columns: 1fr;
   }
 
@@ -86,6 +91,24 @@
 
   .my-device-form {
     grid-template-columns: 1fr;
+  }
+
+  .my-device-system-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .my-device-system-fields__system {
+    grid-column: auto;
+  }
+
+  .my-system-settings__name {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .my-system-components li {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .my-device-form .my-form__hint,

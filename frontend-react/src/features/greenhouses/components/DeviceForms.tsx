@@ -1,18 +1,28 @@
 import { useState } from 'react';
 import Dropdown from '../../../components/ui/Dropdown';
 import type { Device, Greenhouse } from '../../../types';
-import { deviceKindLabels } from '../model/constants';
-import { buildDeviceMetadata, getDeviceKind } from '../model/devices';
+import { componentRoleLabels, deviceKindLabels } from '../model/constants';
+import {
+  buildDeviceMetadata,
+  getActuatorSettings,
+  getComponentRole,
+  getDeviceKind,
+  getIrrigationSettings,
+  getSystemId,
+  getSystemName,
+} from '../model/devices';
 import { getFriendlyError } from '../model/errors';
-import type { DeviceKind, DeviceUpdatePayload, FieldErrors } from '../model/types';
+import type { DeviceComponentRole, DeviceKind, DeviceUpdatePayload, FieldErrors } from '../model/types';
 import Modal from './Modal';
 
 export function DeviceCreateForm({
   greenhouses,
+  devices,
   fixedGreenhouseId,
   onSubmit,
 }: {
   greenhouses: Greenhouse[];
+  devices: Device[];
   fixedGreenhouseId?: number;
   onSubmit: (payload: {
     name: string;
@@ -23,13 +33,26 @@ export function DeviceCreateForm({
 }) {
   const [name, setName] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
-  const [kind, setKind] = useState<DeviceKind>('sensor');
+  const [kind, setKind] = useState<DeviceKind>('climate_control');
+  const [componentRole, setComponentRole] = useState<DeviceComponentRole>('sensor');
+  const [systemId, setSystemId] = useState('new');
   const [greenhouseId, setGreenhouseId] = useState(
     fixedGreenhouseId ? String(fixedGreenhouseId) : ''
   );
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const targetGreenhouseId = fixedGreenhouseId || (greenhouseId ? Number(greenhouseId) : null);
+  const existingSystems = Array.from(
+    new Map(
+      devices
+        .filter(
+          (device) =>
+            device.greenhouse_id === targetGreenhouseId && getDeviceKind(device) === kind
+        )
+        .map((device) => [getSystemId(device), getSystemName(device)])
+    )
+  );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -46,7 +69,21 @@ export function DeviceCreateForm({
         name: name.trim(),
         serial_number: serialNumber.trim(),
         greenhouse_id: greenhouseId ? Number(greenhouseId) : null,
-        metadata: buildDeviceMetadata(kind),
+        metadata: buildDeviceMetadata(kind, {
+          componentRole,
+          systemId:
+            kind === 'other'
+              ? undefined
+              : systemId === 'new'
+                ? `${kind}-${Date.now()}`
+                : systemId,
+          systemName:
+            kind === 'other'
+              ? undefined
+              : systemId === 'new'
+                ? name.trim()
+                : existingSystems.find(([id]) => id === systemId)?.[1],
+        }),
       });
     } catch (submitError) {
       setError(getFriendlyError(submitError, 'Попробуйте позже: устройство не удалось добавить.'));
@@ -80,9 +117,9 @@ export function DeviceCreateForm({
         />
       </label>
       <fieldset className="my-type-options">
-        <legend>Назначение устройства</legend>
+        <legend>Тип системы</legend>
         <small className="my-type-options__hint">
-          Выберите назначение, указанное в паспорте или на самом устройстве.
+          Выберите систему, частью которой будет это устройство.
         </small>
         {Object.entries(deviceKindLabels).map(([value, label]) => (
           <button
@@ -95,7 +132,53 @@ export function DeviceCreateForm({
           </button>
         ))}
       </fieldset>
-      {fixedGreenhouseId === undefined && (
+      {kind !== 'other' && (
+        <div className="my-device-system-fields">
+          <div className="my-form__field">
+            <span>Тип устройства</span>
+            <Dropdown
+              value={componentRole}
+              onChange={(value) => setComponentRole(value as DeviceComponentRole)}
+              placeholder="Выберите тип устройства"
+              options={Object.entries(componentRoleLabels[kind]).map(([value, label]) => ({
+                value,
+                label,
+              }))}
+            />
+          </div>
+          {fixedGreenhouseId === undefined && (
+            <div className="my-form__field">
+              <span>Теплица</span>
+              <Dropdown
+                value={greenhouseId}
+                onChange={setGreenhouseId}
+                placement="up"
+                placeholder="Пока не привязывать"
+                options={[
+                  { value: '', label: 'Пока не привязывать' },
+                  ...greenhouses.map((greenhouse) => ({
+                    value: String(greenhouse.id),
+                    label: greenhouse.name,
+                  })),
+                ]}
+              />
+            </div>
+          )}
+          <div className={`my-form__field${fixedGreenhouseId === undefined ? ' my-device-system-fields__system' : ''}`}>
+            <span>Система теплицы</span>
+            <Dropdown
+              value={systemId}
+              onChange={setSystemId}
+              placeholder="Выберите систему"
+              options={[
+                { value: 'new', label: 'Создать новую систему' },
+                ...existingSystems.map(([id, label]) => ({ value: id, label })),
+              ]}
+            />
+          </div>
+        </div>
+      )}
+      {kind === 'other' && fixedGreenhouseId === undefined && (
         <div className="my-form__field">
           <span>Теплица</span>
           <Dropdown
@@ -278,24 +361,51 @@ export function DeviceSettingsForm({
   greenhouses,
   onSave,
   onRequestDelete,
+  lockAssignment = false,
 }: {
   device: Device;
   greenhouses: Greenhouse[];
   onSave: (device: Device, payload: DeviceUpdatePayload) => Promise<void>;
   onRequestDelete: () => void;
+  lockAssignment?: boolean;
 }) {
   const [name, setName] = useState(device.name);
   const [kind, setKind] = useState<DeviceKind>(getDeviceKind(device));
+  const initialActuatorSettings = getActuatorSettings(device);
+  const [strokeLength, setStrokeLength] = useState(initialActuatorSettings.strokeLength);
+  const [strokeSpeed, setStrokeSpeed] = useState(initialActuatorSettings.strokeSpeed);
+  const [valveOpenPercent, setValveOpenPercent] = useState(
+    getIrrigationSettings(device).valveOpenPercent
+  );
   const [greenhouseId, setGreenhouseId] = useState(
     device.greenhouse_id ? String(device.greenhouse_id) : ''
   );
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const isClimateActuator = kind === 'climate_control' && getComponentRole(device) === 'actuator';
+  const isIrrigationActuator = kind === 'soil_irrigation' && getComponentRole(device) === 'actuator';
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!name.trim()) {
       setError('Заполните название устройства для сохранения.');
+      return;
+    }
+    if (
+      isClimateActuator &&
+      (!Number.isFinite(strokeLength) ||
+        strokeLength <= 0 ||
+        !Number.isFinite(strokeSpeed) ||
+        strokeSpeed <= 0)
+    ) {
+      setError('Укажите положительные значения хода и скорости привода.');
+      return;
+    }
+    if (
+      isIrrigationActuator &&
+      (!Number.isFinite(valveOpenPercent) || valveOpenPercent <= 0 || valveOpenPercent > 100)
+    ) {
+      setError('Укажите лимит открытия клапана от 1 до 100%.');
       return;
     }
     setIsSaving(true);
@@ -305,6 +415,8 @@ export function DeviceSettingsForm({
         name: name.trim(),
         kind,
         ...(greenhouseId ? { greenhouseId: Number(greenhouseId) } : {}),
+        ...(isClimateActuator ? { strokeLength, strokeSpeed } : {}),
+        ...(isIrrigationActuator ? { valveOpenPercent } : {}),
       });
     } catch (submitError) {
       setError(getFriendlyError(submitError, 'Попробуйте позже: устройство не удалось сохранить.'));
@@ -319,7 +431,7 @@ export function DeviceSettingsForm({
         <span>Название устройства *</span>
         <input value={name} onChange={(event) => setName(event.target.value)} />
       </label>
-      <div className="my-form__field">
+      {!lockAssignment && <div className="my-form__field">
         <span>Теплица</span>
         <Dropdown
           value={greenhouseId}
@@ -338,11 +450,11 @@ export function DeviceSettingsForm({
             ? 'Можно оставить устройство нераспределенным или выбрать теплицу.'
             : 'Устройство можно переместить в другую теплицу.'}
         </small>
-      </div>
-      <fieldset className="my-type-options">
-        <legend>Назначение устройства</legend>
+      </div>}
+      {!lockAssignment && <fieldset className="my-type-options">
+        <legend>Тип системы</legend>
         <small className="my-type-options__hint">
-          Выберите назначение, указанное в паспорте или на самом устройстве.
+          Выберите систему, частью которой является устройство.
         </small>
         {Object.entries(deviceKindLabels).map(([value, label]) => (
           <button
@@ -354,7 +466,66 @@ export function DeviceSettingsForm({
             {label}
           </button>
         ))}
-      </fieldset>
+      </fieldset>}
+      {isClimateActuator && (
+        <fieldset className="my-device-settings__parameters">
+          <legend>Параметры управления форточкой</legend>
+          <p>Укажите полный ход штока и скорость движения привода.</p>
+          <div className="my-device-settings__actuator">
+            <label>
+              <span>Ход привода</span>
+              <div>
+                <input
+                  aria-label="Ход привода"
+                  min="1"
+                  step="1"
+                  type="number"
+                  value={strokeLength}
+                  onChange={(event) => setStrokeLength(Number(event.target.value))}
+                />
+                <span>мм</span>
+              </div>
+            </label>
+            <label>
+              <span>Скорость привода</span>
+              <div>
+                <input
+                  aria-label="Скорость привода"
+                  min="0.1"
+                  step="0.1"
+                  type="number"
+                  value={strokeSpeed}
+                  onChange={(event) => setStrokeSpeed(Number(event.target.value))}
+                />
+                <span>мм/с</span>
+              </div>
+            </label>
+          </div>
+        </fieldset>
+      )}
+      {isIrrigationActuator && (
+        <fieldset className="my-device-settings__parameters">
+          <legend>Параметры управления поливом</legend>
+          <p>Укажите максимальный уровень открытия клапана.</p>
+          <div className="my-device-settings__actuator">
+            <label>
+              <span>Лимит открытия клапана</span>
+              <div>
+                <input
+                  aria-label="Лимит открытия клапана"
+                  min="1"
+                  max="100"
+                  step="1"
+                  type="number"
+                  value={valveOpenPercent}
+                  onChange={(event) => setValveOpenPercent(Number(event.target.value))}
+                />
+                <span>%</span>
+              </div>
+            </label>
+          </div>
+        </fieldset>
+      )}
       <p className="my-device-settings__serial">Номер устройства: {device.serial_number}</p>
       {error && <p className="form-error" role="alert">{error}</p>}
       <footer className="my-form__actions my-device-settings__actions">
