@@ -168,6 +168,103 @@ docker compose up -d --build frontend-react
 Для работы API при прямом открытии `http://localhost:3000` контейнер backend
 также должен быть запущен. Пересобирать backend при изменениях React не нужно.
 
+### Подключение новых типов устройств к React
+
+React не обращается к ThingsBoard напрямую и не разбирает его ответ. Интерфейс
+получает подготовленную backend карту телеметрии следующего вида:
+
+```json
+{
+  "device_id": 12,
+  "serial_number": "thingsboard-device-id",
+  "telemetry": {
+    "currentTemp": [
+      { "ts": 1783324800000, "value": 23.4 }
+    ],
+    "tempStatus": [
+      { "ts": 1783324800000, "value": "normal" }
+    ]
+  },
+  "retrieved_at": "2026-07-06T12:00:00"
+}
+```
+
+Ключ объекта `telemetry` является именем показателя, а значение — массивом
+измерений с меткой времени ThingsBoard в миллисекундах. Тип устройства и его
+роль определяются не по телеметрии, а по полям `device_metadata` устройства:
+
+```json
+{
+  "device_type": "climate_control",
+  "component_role": "sensor",
+  "system_id": "climate-system-1",
+  "system_name": "Климат теплицы"
+}
+```
+
+Сейчас поддерживаются назначения `climate_control`, `soil_irrigation` и
+универсальное `other`, а роли компонентов — `sensor`, `actuator`, `control` и
+`standalone`. Значения записываются при добавлении устройства функцией
+`buildDeviceMetadata()`.
+
+Обработка устройства разделена между следующими файлами:
+
+- `frontend-react/src/types.ts` — контракт `DeviceTelemetry` и отдельного
+  измерения `TelemetrySample`;
+- `frontend-react/src/features/greenhouses/model/types.ts` — допустимые
+  назначения, роли и команды устройств;
+- `frontend-react/src/features/greenhouses/model/devices.ts` — чтение и
+  формирование `device_metadata`, объединение компонентов в систему;
+- `frontend-react/src/features/greenhouses/model/constants.ts` — названия
+  назначений, ролей и показателей, а также порядок показа телеметрии;
+- `frontend-react/src/features/greenhouses/model/telemetry.ts` — нормализация
+  ключей, выбор последнего непустого измерения, фильтрация по назначению и роли,
+  единицы измерения и отображение состояний;
+- `frontend-react/src/features/greenhouses/components/DeviceForms.tsx` — поля
+  выбора назначения и роли при добавлении или настройке устройства;
+- `frontend-react/src/features/greenhouses/components/DeviceTelemetryPanel.tsx`
+  — карточка, визуальное представление, история показаний и кнопки управления;
+- `frontend-react/src/pages/my-greenhouses/MyGreenhousesPage.tsx` — загрузка
+  телеметрии и формирование RPC-запросов к backend.
+
+При получении данных React выполняет следующие действия:
+
+1. `getDeviceKind()` определяет назначение по `device_metadata.device_type`.
+2. `getComponentRole()` определяет роль компонента системы.
+3. `filterTelemetryForSystem()` исключает пустые и не относящиеся к роли
+   показатели. Для `other` отображаются все непустые показатели.
+4. `getTelemetryRows()` выбирает последнее непустое значение каждого ключа и
+   сортирует строки: сначала показатели с данными, затем в порядке из
+   `telemetryDisplayOrder`.
+5. `getTelemetryLabelForKind()`, `getTelemetryUnit()` и
+   `formatVisualValue()` преобразуют технический ключ и значение в текст для
+   пользователя.
+
+Чтобы добавить новое назначение устройства, необходимо:
+
+1. Добавить идентификатор в `DeviceKind` и пользовательское название в
+   `deviceKindLabels`.
+2. При необходимости добавить роли в `componentRoleLabels` и метаданные в
+   `buildDeviceMetadata()`.
+3. Добавить ключи телеметрии и подписи в `telemetryLabels` и
+   `normalizedTelemetryLabels`, определить порядок в `telemetryDisplayOrder`.
+4. Настроить допустимые ключи назначения в `filterTelemetryForSystem()`.
+5. Указать единицы и преобразование специальных состояний в
+   `getTelemetryUnit()` и `formatVisualValue()`.
+6. Добавить вариант в формы и при необходимости отдельные элементы карточки,
+   визуализации и автоматизации.
+7. Если устройство управляемое, расширить `DeviceCommand` и сформировать в
+   `MyGreenhousesPage.tsx` RPC-контракт `{ "method": ..., "params": ... }`,
+   который поддерживают backend и устройство.
+8. Добавить проверки в `devices.test.ts` и `telemetry.test.ts`.
+
+Новый ключ должен быть известен не только React. Backend запрашивает у
+ThingsBoard только показатели, перечисленные в переменной
+`THINGSBOARD_TELEMETRY_KEYS` файла `backend/.env`. Если ключ отсутствует в этом
+списке, он не попадёт в ответ `/api/telemetry/{device_id}` и интерфейс не сможет
+его показать. Названия ключей в прошивке или эмуляторе, ThingsBoard, настройках
+backend и React должны совпадать.
+
 Эмулятор ThingsBoard запускается отдельно, поскольку содержит локальные токены:
 
 ```bash
