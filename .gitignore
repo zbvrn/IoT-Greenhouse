@@ -1,4 +1,5 @@
 mock/config.json
+mock/runtime-state.json
 mock/__pycache__/
 backend/.env
 frontend/.env

@@ -55,3 +55,6 @@ For irrigation, `setIrrigationConfig` accepts `valveOpenPercent`, and
 `setMoistureAutomationConfig` accepts `enabled`, `targetMoisture`, and
 `hysteresis`. The valve opens below `targetMoisture - hysteresis` and closes
 when `targetMoisture` is reached.
+
+Automation settings received from React are saved to the ignored
+`runtime-state.json` file and restored when the emulator container restarts.

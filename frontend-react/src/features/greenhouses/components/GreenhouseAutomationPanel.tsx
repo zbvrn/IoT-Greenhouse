@@ -138,11 +138,11 @@ export default function GreenhouseAutomationPanel({
   const save = async () => {
     setIsSaving(true);
     setError('');
-    if (hasClimateControl) localStorage.setItem(temperatureKey, JSON.stringify(temperature));
-    if (hasSoilIrrigation) localStorage.setItem(moistureKey, JSON.stringify(moisture));
     try {
       if (hasClimateControl && onSaveTemperature) await onSaveTemperature(temperature);
       if (hasSoilIrrigation && onSaveMoisture) await onSaveMoisture(moisture);
+      if (hasClimateControl) localStorage.setItem(temperatureKey, JSON.stringify(temperature));
+      if (hasSoilIrrigation) localStorage.setItem(moistureKey, JSON.stringify(moisture));
       setSaved(true);
     } catch (saveError) {
       setSaved(false);

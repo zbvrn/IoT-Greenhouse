@@ -18,6 +18,7 @@ from typing import Any
 
 DEFAULT_API_BASE_URL = "http://81.177.135.202:5010/api/v1"
 DEFAULT_CONFIG_FILE = pathlib.Path(__file__).resolve().parent / "config.json"
+DEFAULT_STATE_FILE = pathlib.Path(__file__).resolve().parent / "runtime-state.json"
 
 
 def iso_timestamp() -> str:
@@ -62,6 +63,31 @@ class ThingsBoardHttpClient:
         )
 
 
+class RuntimeStateStore:
+    def __init__(self, path: pathlib.Path) -> None:
+        self.path = path
+        self.lock = threading.Lock()
+        try:
+            self.data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        except (json.JSONDecodeError, OSError):
+            self.data = {}
+
+    def get(self, system_name: str) -> dict[str, Any]:
+        value = self.data.get(system_name, {})
+        return value if isinstance(value, dict) else {}
+
+    def update(self, system_name: str, values: dict[str, Any]) -> None:
+        with self.lock:
+            current = self.get(system_name)
+            self.data[system_name] = {**current, **values}
+            temporary = self.path.with_suffix(f"{self.path.suffix}.tmp")
+            temporary.write_text(
+                json.dumps(self.data, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            temporary.replace(self.path)
+
+
 @dataclass
 class SystemConfig:
     name: str
@@ -103,12 +129,14 @@ class GreenhouseSystemEmulator:
         telemetry_interval: float,
         movement_interval: float,
         rpc_timeout: int,
+        state_store: RuntimeStateStore | None = None,
     ) -> None:
         self.config = config
         self.client = client
         self.telemetry_interval = telemetry_interval
         self.movement_interval = movement_interval
         self.rpc_timeout = rpc_timeout
+        self.state_store = state_store
         self.position = max(0.0, min(config.initial_position, config.stroke_length))
         self.target_position = self.position
         self.state = "open" if self.position >= config.stroke_length else "closed"
@@ -121,6 +149,42 @@ class GreenhouseSystemEmulator:
         self.moisture_hysteresis = config.moisture_max - config.moisture_min
         self.soil_moisture = config.soil_moisture
         self.lock = threading.Lock()
+        self._restore_state()
+
+    def _restore_state(self) -> None:
+        if not self.state_store:
+            return
+        state = self.state_store.get(self.config.name)
+        self.automation_enabled = bool(state.get("automationEnabled", self.automation_enabled))
+        self.target_temperature = float(state.get("targetTemperature", self.target_temperature))
+        self.hysteresis = float(state.get("temperatureHysteresis", self.hysteresis))
+        self.target_moisture = float(state.get("targetMoisture", self.target_moisture))
+        self.moisture_hysteresis = float(
+            state.get("moistureHysteresis", self.moisture_hysteresis)
+        )
+        self.config.moisture_max = self.target_moisture
+        self.config.moisture_min = self.target_moisture - self.moisture_hysteresis
+        if state:
+            log(
+                "INFO",
+                f"{self.config.name}/automation: restored enabled={self.automation_enabled} "
+                f"targetTemperature={self.target_temperature} "
+                f"targetMoisture={self.target_moisture}",
+            )
+
+    def _persist_automation_state(self) -> None:
+        if not self.state_store:
+            return
+        self.state_store.update(
+            self.config.name,
+            {
+                "automationEnabled": self.automation_enabled,
+                "targetTemperature": self.target_temperature,
+                "temperatureHysteresis": self.hysteresis,
+                "targetMoisture": self.target_moisture,
+                "moistureHysteresis": self.moisture_hysteresis,
+            },
+        )
 
     def _safe_telemetry(self, token: str, payload: dict[str, Any], component: str) -> None:
         try:
@@ -258,6 +322,7 @@ class GreenhouseSystemEmulator:
                 self.target_temperature = float(target)
             if hysteresis is not None and float(hysteresis) >= 0:
                 self.hysteresis = float(hysteresis)
+        self._persist_automation_state()
         log(
             "INFO",
             f"{self.config.name}/automation: enabled={self.automation_enabled} "
@@ -277,6 +342,7 @@ class GreenhouseSystemEmulator:
                 self.moisture_hysteresis = float(hysteresis)
             self.config.moisture_max = self.target_moisture
             self.config.moisture_min = self.target_moisture - self.moisture_hysteresis
+        self._persist_automation_state()
         log(
             "INFO",
             f"{self.config.name}/automation: enabled={self.automation_enabled} "
@@ -430,6 +496,8 @@ def main() -> int:
         telemetry_interval = positive(raw.get("telemetry_interval_seconds", 10), "telemetry_interval_seconds")
         movement_interval = positive(raw.get("movement_interval_seconds", 1), "movement_interval_seconds")
         rpc_timeout = int(positive(raw.get("rpc_timeout_seconds", 30), "rpc_timeout_seconds"))
+        state_path = pathlib.Path(os.environ.get("MOCK_STATE_FILE", DEFAULT_STATE_FILE))
+        state_store = RuntimeStateStore(state_path)
     except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError) as exc:
         log("ERROR", str(exc))
         return 1
@@ -441,6 +509,7 @@ def main() -> int:
             telemetry_interval,
             movement_interval,
             rpc_timeout,
+            state_store,
         ).start()
     while True:
         time.sleep(60)

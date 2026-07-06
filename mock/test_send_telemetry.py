@@ -1,7 +1,10 @@
 import unittest
+import pathlib
+import tempfile
 
 from send_telemetry import (
     GreenhouseSystemEmulator,
+    RuntimeStateStore,
     SystemConfig,
     command_from_rpc,
     parse_system,
@@ -99,6 +102,35 @@ class ConfigurationTests(unittest.TestCase):
         emulator._evaluate_moisture_automation(44)
         self.assertEqual(emulator.action, "open")
         self.assertEqual(emulator.target_position, 100)
+
+    def test_automation_settings_survive_emulator_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = RuntimeStateStore(pathlib.Path(directory) / "runtime-state.json")
+            config = SystemConfig(
+                "watering", "irrigation", "sensor", "control", "actuator",
+                stroke_length=100,
+            )
+            emulator = GreenhouseSystemEmulator(
+                config, FakeClient(), 10, 1, 30, store
+            )
+            emulator._apply_moisture_automation_config(
+                {"enabled": True, "targetMoisture": 50, "hysteresis": 10}
+            )
+
+            restarted = GreenhouseSystemEmulator(
+                SystemConfig(
+                    "watering", "irrigation", "sensor", "control", "actuator",
+                    stroke_length=100,
+                ),
+                FakeClient(), 10, 1, 30,
+                RuntimeStateStore(pathlib.Path(directory) / "runtime-state.json"),
+            )
+
+            self.assertTrue(restarted.automation_enabled)
+            self.assertEqual(restarted.target_moisture, 50)
+            self.assertEqual(restarted.moisture_hysteresis, 10)
+            restarted._evaluate_moisture_automation(3)
+            self.assertEqual(restarted.action, "open")
 
 
 if __name__ == "__main__":
